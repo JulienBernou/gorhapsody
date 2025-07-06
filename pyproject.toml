@@ -1,0 +1,19 @@
+[project]
+name = "gorhapsody"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "alexandre.jaouen",email = "alexandre.jaouen@buildingminds.com"}
+]
+readme = "README.md"
+requires-python = ">=3.9"
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.dependencies]
+flask = "^3.1.1"
+sgfmill = "^1.1.1"
+flask-cors = "^3.0"

@@ -26,8 +26,8 @@ This project aims to create an immersive experience for viewing Go games, synchr
 
 3.  **Install Python dependencies:**
     ```bash
-    pip install -r requirements.txt
-    ```
+poetry install --no-root 
+   ```
 
 4.  **Run the Flask backend:**
     ```bash
