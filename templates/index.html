@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GoRhapsody: Go & Music Synchronizer</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link type="text/css" href="{{ url_for('static', filename='css/wgo.player.css') }}" rel="stylesheet" />
+    <style>
+        /* Basic styling (can move to style.css) */
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; flex-direction: column; align-items: center; background-color: #f0f0f0; color: #333; margin: 20px;}
+        h1 { color: #2c3e50; }
+        .container { display: flex; flex-direction: column; align-items: center; background-color: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-top: 20px; }
+        #goban-container { width: 500px; height: 500px; margin-top: 20px; border: 1px solid #ccc; box-shadow: inset 0 0 5px rgba(0,0,0,0.1); }
+        #controls { margin-top: 20px; display: flex; gap: 10px; }
+        button { padding: 10px 18px; border: none; border-radius: 5px; cursor: pointer; font-size: 1em; transition: background-color 0.2s ease; }
+        button:hover:enabled { background-color: #0056b3; color: white; }
+        button:disabled { background-color: #cccccc; cursor: not-allowed; }
+        #startButton, #playPauseBtn { background-color: #007bff; color: white; }
+        #prevBtn, #nextBtn { background-color: #6c757d; color: white; }
+        input[type="file"] { margin: 10px 0; padding: 5px; border: 1px solid #ccc; border-radius: 4px; }
+        #status-message { margin-top: 15px; font-weight: bold; color: #555; }
+        .error { color: #dc3545; }
+        .success { color: #28a745; }
+    </style>
+</head>
+<body>
+    <h1>GoRhapsody: Go & Music Synchronizer</h1>
+
+    <div class="container">
+        <div id="sgf-upload-section">
+            <label for="sgfUpload">Upload SGF:</label>
+            <input type="file" id="sgfUpload" accept=".sgf">
+            <button id="startButton" disabled>Load & Start Playback</button>
+        </div>
+        <div id="status-message"></div>
+    </div>
+
+    <div id="goban-container">
+        <div id="wgo-player-display"></div>
+    </div>
+
+    <div id="controls">
+        <button id="prevBtn" disabled>&laquo; Prev</button>
+        <button id="playPauseBtn" disabled>Play</button>
+        <button id="nextBtn" disabled>Next &raquo;</button>
+        <button id="resetBtn" disabled>Reset</button>
+    </div>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/wgo.min.css') }}">
+    <script src="{{ url_for('static', filename='js/wgo.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/wgo.player.min.js') }}"></script>
+    
+    <script src="https://unpkg.com/tone"></script>
+
+    <script src="{{ url_for('static', filename='js/music_engine.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
