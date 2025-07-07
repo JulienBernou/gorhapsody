@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
-from backend.game_analyzer import GameAnalyzer # Correct import path for package structure
+from go_rhapsody.game_analyzer.game_analyzer import GameAnalyzer # Correct import path for package structure
 import uuid # For generating unique game IDs
 import sgfmill.sgf # To infer board size
 
