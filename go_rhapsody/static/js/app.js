@@ -112,7 +112,7 @@ function goToNextMove() {
         currentMoveIndex++;
         wgoPlayer.next();
         playMusicalCue({type: 'Normal Move'});
-        showStatus("Moved forward. Current index: " + currentMoveIndex, "info");
+        // showStatus("Moved forward. Current index: " + currentMoveIndex, "info");
     } else {
         showStatus("At the end of the game.", "info");
         playMusicalCue({type: 'Finished'});
