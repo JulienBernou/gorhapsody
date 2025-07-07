@@ -56,7 +56,12 @@ function setupWGoPlayer(sgfString) {
         enableMoving: false, // Prevent user from moving stones directly
         enableWheel: false, // Prevent wheel scrolling
         enableKeys: false, // Prevent keyboard navigation (we use our buttons)
-        showTools: false // Hide built-in tools
+        showTools: false, // Hide built-in tools
+        layout: {
+                    // Remove 'Control' from here.
+                    // bottom: ['Control'],
+                    // left: ['InfoBox', 'CommentBox'], // If you have these, they'll still show
+                },
     });
 
     // We override WGo.Player's onNodeChanged to integrate our music and analysis
@@ -112,7 +117,7 @@ function goToNextMove() {
         currentMoveIndex++;
         wgoPlayer.next();
         playMusicalCue({type: 'Normal Move'});
-        showStatus("Moved forward. Current index: " + currentMoveIndex, "info");
+        // showStatus("Moved forward. Current index: " + currentMoveIndex, "info");
     } else {
         showStatus("At the end of the game.", "info");
         playMusicalCue({type: 'Finished'});
