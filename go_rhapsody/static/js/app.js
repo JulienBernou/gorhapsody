@@ -80,9 +80,11 @@ function setupWGoPlayer(sgfString) {
 
 function playNextMoveWithWGo() {
     // The player's next() method returns false if it's at the end
-    if (wgoPlayer.next()) {
+    if (currentMoveIndex < gameData.length - 1) {
         currentMoveIndex++;
+        wgoPlayer.next();
         playbackIntervalId = setTimeout(playNextMoveWithWGo, playbackSpeed);
+        playMusicalCue({type: 'Normal Move'});
     } else {
         stopPlayback();
         showStatus("Playback finished.", "info");
