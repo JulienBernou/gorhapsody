@@ -51,7 +51,7 @@ function setupWGoPlayer(sgfString) {
     // Ensure your HTML has a <div id="wgo-player-display"></div>
     // Also, ensure your CSS gives this div a width and height, e.g.:
     // #wgo-player-display { width: 500px; height: 500px; }
-    wgoPlayer = new WGo.Player(document.getElementById('wgo-player-display'), {
+    wgoPlayer = new WGo.BasicPlayer(document.getElementById('wgo-player-display'), {
         sgf: sgfString,
         enableMoving: false, // Prevent user from moving stones directly
         enableWheel: false, // Prevent wheel scrolling
