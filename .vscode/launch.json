@@ -1,0 +1,11 @@
+{
+    "configurations": [
+        {
+            "name": "App.py",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "go_rhapsody/backend/app.py",
+            "console": "integratedTerminal"
+        }
+    ]
+}

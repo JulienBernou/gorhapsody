@@ -26,17 +26,19 @@ This project aims to create an immersive experience for viewing Go games, synchr
 
 3.  **Install Python dependencies:**
     ```bash
-    pip install -r requirements.txt
+    poetry install --no-root 
     ```
 
 4.  **Run the Flask backend:**
+    
     ```bash
     export FLASK_APP=backend/app.py # On Windows: set FLASK_APP=backend\app.py
     export FLASK_ENV=development # For debug mode
     flask run
     ```
-    The server should start on `http://127.0.0.1:5000/`.
-
+    The server should start on `http://127.0.0.1:5000/`
+    
+    
 5.  **Set up a MIDI Synthesizer/DAW (for music output):**
     The frontend JavaScript (Tone.js) will produce audio directly in the browser, so no external MIDI setup is strictly required for basic functionality. However, if you want to use external MIDI devices or specific software synths, you'd integrate them via your browser's audio/MIDI capabilities or by routing internal audio.
 

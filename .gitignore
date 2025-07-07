@@ -1,0 +1,26 @@
+# Python bytecode
+__pycache__
+*.pyc
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+*.egg
+
+# Test/coverage
+.coverage
+.pytest_cache/
+.tox/
+.nox/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+.DS_Store
