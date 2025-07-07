@@ -1,0 +1,148 @@
+body {
+    font-family: Arial, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    min-height: 100vh;
+    background-color: #f0f0f0;
+    margin: 20px;
+}
+
+.container {
+    background-color: #fff;
+    padding: 25px;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    text-align: center;
+    max-width: 900px;
+    width: 100%;
+}
+
+h1 {
+    color: #333;
+    margin-bottom: 20px;
+}
+
+.upload-section {
+    margin-bottom: 30px;
+    padding: 15px;
+    border: 1px dashed #ccc;
+    border-radius: 5px;
+    background-color: #f9f9f9;
+}
+
+input[type="file"] {
+    margin-right: 10px;
+}
+
+button {
+    padding: 10px 20px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background-color 0.3s ease;
+}
+
+button:hover {
+    background-color: #0056b3;
+}
+
+button:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+}
+
+#game-visualization {
+    margin-top: 20px;
+    border-top: 1px solid #eee;
+    padding-top: 20px;
+}
+
+#goban-container {
+    display: inline-block; /* To center the board */
+    position: relative;
+    background-color: #deb887; /* Goban color */
+    border: 2px solid #5a3e20; /* Goban border */
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+    margin: 20px auto;
+}
+
+.goban-row {
+    display: flex;
+}
+
+.intersection {
+    position: relative;
+    box-sizing: border-box;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: transparent; /* Lines will be drawn by pseudo-elements */
+}
+
+/* Lines for the goban */
+.intersection::before,
+.intersection::after {
+    content: '';
+    position: absolute;
+    background-color: #000; /* Line color */
+}
+
+/* Horizontal lines */
+.intersection::before {
+    height: 1px;
+    width: 100%;
+    left: 0;
+}
+
+/* Vertical lines */
+.intersection::after {
+    width: 1px;
+    height: 100%;
+    top: 0;
+}
+
+/* Remove right and bottom lines for the last row/column to avoid double lines at the edge */
+.goban-row .intersection:last-child::after {
+    width: 0;
+}
+.goban-row:last-child .intersection::before {
+    height: 0;
+}
+
+/* Stones */
+.stone {
+    position: absolute;
+    border-radius: 50%;
+    width: 90%; /* Slightly smaller than intersection size to show lines */
+    height: 90%;
+    z-index: 10; /* Make sure stones are on top of lines */
+}
+
+.black {
+    background-color: #000;
+}
+
+.white {
+    background-color: #fff;
+    border: 1px solid #666; /* Border for white stones */
+}
+
+.controls {
+    margin-top: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 15px;
+}
+
+#moveNumber {
+    font-size: 1.1em;
+    font-weight: bold;
+    color: #555;
+    min-width: 120px; /* Ensure consistent spacing */
+    text-align: center;
+}
