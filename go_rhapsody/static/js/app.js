@@ -107,9 +107,14 @@ function goToPrevMove() {
 function goToNextMove() {
     pausePlayback();
     if (wgoPlayer.next()) {
+    if (currentMoveIndex < gameData.length - 1) {
         currentMoveIndex++;
+        wgoPlayer.next();
+        playMusicalCue({type: 'Normal Move'});
+        showStatus("Moved forward. Current index:", currentMoveIndex);
     } else {
         showStatus("At the end of the game.", "info");
+        playMusicalCue({type: 'Finished'});
     }
 }
 
