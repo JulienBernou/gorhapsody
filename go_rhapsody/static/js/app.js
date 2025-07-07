@@ -35,22 +35,12 @@ function setPlayPauseButton(isPlaying) {
 
 // --- Go Board Playback Logic ---
 
-/**
- * CORRECTED FUNCTION
- * Sets up the WGo.js player.
- * - Creates a single WGo.Player instance.
- * - Attaches to the correct HTML element ('wgo-player-display').
- * - Does NOT create conflicting built-in controls.
- */
 function setupWGoPlayer(sgfString) {
     // Clear any existing player instance
     if (wgoPlayer) {
         wgoPlayer.destroy();
     }
 
-    // Ensure your HTML has a <div id="wgo-player-display"></div>
-    // Also, ensure your CSS gives this div a width and height, e.g.:
-    // #wgo-player-display { width: 500px; height: 500px; }
     wgoPlayer = new WGo.BasicPlayer(document.getElementById('wgo-player-display'), {
         sgf: sgfString,
         enableMoving: false, // Prevent user from moving stones directly
@@ -84,7 +74,6 @@ function setupWGoPlayer(sgfString) {
 
 
 function playNextMoveWithWGo() {
-    // The player's next() method returns false if it's at the end
     if (currentMoveIndex < gameData.length - 1) {
         currentMoveIndex++;
         wgoPlayer.next();
@@ -99,13 +88,11 @@ function playNextMoveWithWGo() {
 
 function goToPrevMove() {
     pausePlayback();
-    // The player's previous() method returns false if it's at the start
     if (wgoPlayer.previous()) {
         currentMoveIndex--;
     } else {
         // We're at the very beginning (before move 1)
         currentMoveIndex = -1;
-        showStatus("At the start of the game.", "info");
         playMusicalCue({type: 'Reset'}); // Optional: cue for being at the start
     }
 }
@@ -129,7 +116,6 @@ function stopPlayback() {
     currentMoveIndex = -1; // Reset to before first move
     wgoPlayer.first(); // Go to the initial board state in WGo.js
     setPlayPauseButton(false);
-    showStatus("Playback stopped. Ready to play.", "info");
     playMusicalCue({type: 'Reset'}); // Special cue for reset/start
 }
 
@@ -138,7 +124,6 @@ function startPlayback() {
         pausePlayback(); // If already playing, this acts as a resume button
     }
     setPlayPauseButton(true);
-    showStatus("Playback started...", "info");
     playNextMoveWithWGo(); // Start from the current move
 }
 
@@ -146,7 +131,6 @@ function pausePlayback() {
     clearTimeout(playbackIntervalId);
     playbackIntervalId = null;
     setPlayPauseButton(false);
-    showStatus("Playback paused.", "info");
 }
 
 // --- Event Listeners ---
@@ -157,7 +141,7 @@ sgfUploadInput.addEventListener('change', async (event) => {
         return;
     }
 
-    showStatus("Uploading and analyzing SGF...", "info");
+    // showStatus("Uploading and analyzing SGF...", "info");
     enableControls(false); // Disable controls during upload/analysis
 
     const formData = new FormData();
@@ -172,7 +156,7 @@ sgfUploadInput.addEventListener('change', async (event) => {
         const result = await response.json();
 
         if (response.ok) {
-            showStatus("SGF analysis successful!", "success");
+            // showStatus("SGF analysis successful!", "success");
             const gameId = result.game_id;
 
             const analysisResponse = await fetch(`/analysis/${gameId}`);
@@ -197,7 +181,7 @@ sgfUploadInput.addEventListener('change', async (event) => {
                 enableControls(false);
             }
         } else {
-            showStatus(`SGF Upload Failed: ${result.error}`, "error");
+            // showStatus(`SGF Upload Failed: ${result.error}`, "error");
             enableControls(false);
         }
     } catch (error) {
