@@ -14,6 +14,9 @@ const prevBtn = document.getElementById('prevBtn');
 const nextBtn = document.getElementById('nextBtn');
 const resetBtn = document.getElementById('resetBtn');
 const statusMessageDiv = document.getElementById('status-message');
+const currentMoveDiv = document.getElementById('currentMoveDiv');
+const analysisDiv = document.getElementById('analysisDiv');
+
 
 // --- Helper Functions ---
 function showStatus(message, type = 'info') {
@@ -54,28 +57,51 @@ function setupWGoPlayer(sgfString) {
                 },
     });
 
-    // We override WGo.Player's onNodeChanged to integrate our music and analysis
-    wgoPlayer.onNodeChanged = function(ev) {
-        if (ev.node.move) { // Ensure it's a move node
-            const moveNumber = ev.node.move.move_number;
-            const report = gameData.find(d => d.move_number === moveNumber);
-            if (report) {
-                playMusicalCue(report);
-            }
-        } else if (ev.node.pass) { // Handle passes
-             const moveNumber = ev.node.move_number;
-             const report = gameData.find(d => d.move_number === moveNumber);
-             if (report) {
-                 playMusicalCue(report);
-             }
-        }
-    };
+    // // We override WGo.Player's onNodeChanged to integrate our music and analysis
+    // wgoPlayer.onNodeChanged = function(ev) {
+    //     console.log("Node change")
+    //     if (ev.node.move) { // Ensure it's a move node
+    //         console.log("Node change A")
+    //         const moveNumber = ev.node.move.move_number;
+    //         const report = gameData.find(d => d.move_number === moveNumber);
+    //         analysisDiv.innerHTML = report
+    //         if (report) {
+    //             playMusicalCue(report);
+    //         }
+    //     } else if (ev.node.pass) { // Handle passes
+    //         console.log("Node change B")
+    //          const moveNumber = ev.node.move_number;
+    //          const report = gameData.find(d => d.move_number === moveNumber);
+    //          analysisDiv.innerHTML = report
+    //          if (report) {
+    //              playMusicalCue(report);
+    //          }
+    //     }
+    // };
 }
 
 
 function playNextMoveWithWGo() {
     if (currentMoveIndex < gameData.length - 1) {
         currentMoveIndex++;
+        const report = gameData[currentMoveIndex];
+        if (report) {
+            let analysisText = ``;
+            analysisText += `<strong>Move ${report.move_number} (${report.player}): ${report.sgf_coords || 'Pass'}</strong><br>`;
+            let nuances = [];
+            if (report.type === 'Capture') nuances.push(`Captured ${report.captured_count} stone(s)!`);
+            if (report.self_atari) nuances.push("Self-Atari!");
+            if (report.atari_threats && report.atari_threats.length > 0) nuances.push("Atari Threat!");
+            if (report.is_contact_play) nuances.push("Contact Play.");
+            if (report.is_hane) nuances.push("Hane.");
+            if (report.is_cut) nuances.push("Cut.");
+            if (report.is_connection) nuances.push("Connection.");
+            if (report.is_empty_triangle) nuances.push("Empty Triangle.");
+            if (nuances.length > 0) analysisText += `Nuances: ${nuances.join(", ")}`;
+            else analysisText += `Type: ${report.type}`;
+            analysisDiv.innerHTML = analysisText;
+        }
+
         wgoPlayer.next();
         playbackIntervalId = setTimeout(playNextMoveWithWGo, playbackSpeed);
         playMusicalCue({type: 'Normal Move'});
@@ -93,6 +119,7 @@ function goToPrevMove() {
     } else {
         // We're at the very beginning (before move 1)
         currentMoveIndex = -1;
+        currentMoveDiv.innerHTML = currentMoveIndex
         playMusicalCue({type: 'Reset'}); // Optional: cue for being at the start
     }
 }
@@ -102,6 +129,24 @@ function goToNextMove() {
     pausePlayback();
     if (currentMoveIndex < gameData.length - 1) {
         currentMoveIndex++;
+        currentMoveDiv.innerHTML = currentMoveIndex
+        const report = gameData[currentMoveIndex];
+        if (report) {
+            let analysisText = ``;
+            analysisText += `<strong>Move ${report.move_number} (${report.player}): ${report.sgf_coords || 'Pass'}</strong><br>`;
+            let nuances = [];
+            if (report.type === 'Capture') nuances.push(`Captured ${report.captured_count} stone(s)!`);
+            if (report.self_atari) nuances.push("Self-Atari!");
+            if (report.atari_threats && report.atari_threats.length > 0) nuances.push("Atari Threat!");
+            if (report.is_contact_play) nuances.push("Contact Play.");
+            if (report.is_hane) nuances.push("Hane.");
+            if (report.is_cut) nuances.push("Cut.");
+            if (report.is_connection) nuances.push("Connection.");
+            if (report.is_empty_triangle) nuances.push("Empty Triangle.");
+            if (nuances.length > 0) analysisText += `Nuances: ${nuances.join(", ")}`;
+            else analysisText += `Type: ${report.type}`;
+            analysisDiv.innerHTML = analysisText;
+        }
         wgoPlayer.next();
         playMusicalCue({type: 'Normal Move'});
         // showStatus("Moved forward. Current index: " + currentMoveIndex, "info");
@@ -114,6 +159,7 @@ function goToNextMove() {
 function stopPlayback() {
     pausePlayback();
     currentMoveIndex = -1; // Reset to before first move
+    currentMoveDiv.innerHTML = currentMoveIndex
     wgoPlayer.first(); // Go to the initial board state in WGo.js
     setPlayPauseButton(false);
     playMusicalCue({type: 'Reset'}); // Special cue for reset/start
@@ -165,12 +211,14 @@ sgfUploadInput.addEventListener('change', async (event) => {
             if (analysisResponse.ok) {
                 gameData = analysisResult;
                 console.log("Analysis Log Loaded:", gameData);
+                analysisDiv.innerText = gameData
 
                 const reader = new FileReader();
                 reader.onload = function(e) {
                     setupWGoPlayer(e.target.result);
                     enableControls(true);
                     currentMoveIndex = -1;
+                    currentMoveDiv.innerHTML = currentMoveIndex
                     wgoPlayer.first();
                     setPlayPauseButton(false);
                 };
@@ -190,9 +238,6 @@ sgfUploadInput.addEventListener('change', async (event) => {
         enableControls(false);
     }
 });
-
-// The original startButton is now redundant if you have a combined Play/Pause button
-startButton.addEventListener('click', startPlayback);
 
 playPauseBtn.addEventListener('click', () => {
     if (playbackIntervalId) {
