@@ -5,7 +5,8 @@
             "type": "debugpy",
             "request": "launch",
             "program": "go_rhapsody/backend/app.py",
-            "console": "integratedTerminal"
+            "console": "integratedTerminal",
+            "justMyCode": false
         }
     ]
 }
