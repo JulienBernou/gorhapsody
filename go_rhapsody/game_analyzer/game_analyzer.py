@@ -230,7 +230,7 @@ class GameAnalyzer:
         return captured_stones
 
 
-    def analyze_nuances_after_move(
+    def analyze_pattern_after_move(
         self,
         move_number: int,
         row: int,
@@ -241,11 +241,11 @@ class GameAnalyzer:
         report: Dict 
     ) -> None:
         """
-        Analyzes Go move nuances: move type (prioritized), and distances.
+        Analyzes Go move patterns: move type (prioritized), and distances.
         Populates the 'report' dictionary with the findings.
         """
         player_color: StoneColorSGF = SGF_BLACK if player_color_char == 'b' else SGF_WHITE
-        self.log.debug(f"Analyzing nuances for move {move_number} at ({row},{col}) by {player_color_char}")
+        self.log.debug(f"Analyzing patterns for move {move_number} at ({row},{col}) by {player_color_char}")
 
         # --- Distance Calculations ---
         report['distance_from_center'] = self._calculate_distance_from_center(row, col)
@@ -256,7 +256,7 @@ class GameAnalyzer:
             current_board_obj, row, col, player_color
         )
 
-        # --- Core Go Nuances for Type and Musical Intensity ---
+        # --- Core Go patterns for Type and Musical Intensity ---
         atari_groups, atari_threat_groups = self._check_atari_threats(current_board_obj, row, col, player_color)
         captured_stones = self._check_captures(current_board_obj, (row, col), player_color, board_before_move_list)
         is_contact = self._is_contact_play(current_board_obj, row, col, player_color)
@@ -286,7 +286,7 @@ class GameAnalyzer:
 
     def analyze_sgf_game(self, sgf_string: str) -> Optional[List[Dict]]:
         """
-        Analyzes an SGF game string, processing each move and extracting Go-specific nuances.
+        Analyzes an SGF game string, processing each move and extracting Go-specific patterns.
         Does not handle illegal moves; any sgfmill errors will halt the analysis.
 
         Args:
@@ -345,7 +345,7 @@ class GameAnalyzer:
                     if ko_point is not None:
                         analysis_report['ko_detected'] = True
 
-                    self.analyze_nuances_after_move(
+                    self.analyze_pattern_after_move(
                         move_number=i, 
                         row=r, 
                         col=c, 
