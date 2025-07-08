@@ -28,8 +28,9 @@ class GameAnalyzer:
 
                 analysis_report['player'] = color_char
                 
-                # Board state before the move (as a list of lists for JSON serialization)
-                analysis_report['board_before_move_state'] = self._board_to_list(board)
+                # IMPORTANT: We need a copy of the board *before* the move to detect captures accurately.
+                board_before_move_copy = self._board_to_list(board)
+                analysis_report['board_before_move_state'] = board_before_move_copy
 
                 if coords is None: # It's a pass
                     analysis_report['type'] = 'Pass'
@@ -42,14 +43,14 @@ class GameAnalyzer:
 
                     try:
                         ko_point = board.play(r, c, color_char) 
-                        analysis_report['captured_count'] = 0 # Placeholder! This needs a better solution.
-                        analysis_report['type'] = 'Normal Move'
+                        analysis_report['captured_count'] = 0 # Will be updated by analyze_nuances_after_move
+                        analysis_report['type'] = 'Normal Move' # Default, can be overridden
 
                         if ko_point is not None:
                             analysis_report['ko_detected'] = True
 
                         if color_char is not None:
-                            self.analyze_nuances_after_move(r, c, color_char, board, analysis_report)
+                            self.analyze_nuances_after_move(i, r, c, color_char, board, board_before_move_copy, analysis_report)
 
                     except Exception as e:
                         analysis_report['type'] = 'Illegal Move'
@@ -60,17 +61,19 @@ class GameAnalyzer:
                 self.analysis_log.append(analysis_report)
             
         except Exception as e:
-            print(f"Error analyzing SGF: {e}")
+            self.log.error(f"Error analyzing SGF: {e}") # Use logger instead of print
             return None # Indicate failure
             
         return self.analysis_log
 
     def analyze_nuances_after_move(
         self,
+        move_number: int,
         r: int,
         c: int,
         player_color_char: str,
         current_board_obj: sgfmill.boards.Board,
+        board_before_move_list: list[list[str]], # Added this parameter
         report: dict
     ) -> None:
         """
@@ -87,148 +90,119 @@ class GameAnalyzer:
         if len(self.get_liberties(current_board_obj, group)) == 1:
             report['self_atari'] = True
 
-        # --- 2. Atari Threats (Did this move put opponent in atari?) ---
-        report['atari_threats'] = []
-        for nr, nc in self._neighbors(r, c, board_size): # Fixed: Use self._neighbors
+        # --- 2. Atari / Atari Threat Detection ---
+        report['atari'] = [] # List of opponent groups now in atari (1 liberty)
+        report['atari_threats'] = [] # List of opponent groups now with 2 liberties left
+
+        for nr, nc in self._neighbors(r, c, board_size):
             if current_board_obj.get(nr, nc) == opponent:
                 opp_group = self.get_group(current_board_obj, (nr, nc))
-                if len(self.get_liberties(current_board_obj, opp_group)) == 1:
-                    report['atari_threats'].append((nr, nc))
+                liberties = self.get_liberties(current_board_obj, opp_group)
+                num_liberties = len(liberties)
+                
+                if num_liberties == 1:
+                    report['atari'].append(tuple(sorted(list(opp_group)))) 
+                elif num_liberties == 2:
+                    report['atari_threats'].append(tuple(sorted(list(opp_group))))
 
         # --- 3. Capture Detection ---
-        # If any adjacent opponent group disappeared, it was captured
-        captured = []
-        for nr, nc in self._neighbors(r, c, board_size): # Fixed: Use self._neighbors
-            if current_board_obj.get(nr, nc) == opponent:
-                # If this neighbor is still present, not captured
-                continue
-            # If previously there was an opponent stone here, and now it's empty, it's a capture
-            # This requires board state before move, which is available in report['board_before_move_state']
-            before = report.get('board_before_move_state')
-            # Check if before is not None and coordinates are valid within the before board state
-            if before and 0 <= nr < len(before) and 0 <= nc < len(before[0]) and before[nr][nc].lower() == opponent:
-                captured.append((nr, nc))
-        report['captures'] = captured
-        if captured:
+        captured_stones = []
+        for nr, nc in self._neighbors(r, c, board_size):
+            # Check if this neighbor point was an opponent stone *before* the move
+            prev_state_stone = None
+            if 0 <= nr < board_size and 0 <= nc < board_size:
+                char = board_before_move_list[nr][nc]
+                if char == 'B': prev_state_stone = 'b'
+                elif char == 'W': prev_state_stone = 'w'
+                
+            # If it was an opponent stone and is now empty, it was captured
+            if prev_state_stone == opponent and current_board_obj.get(nr, nc) is None:
+                captured_stones.append((nr, nc))
+        report['captures'] = captured_stones
+        if captured_stones:
             report['type'] = 'Capture'
+            report['captured_count'] = len(captured_stones)
 
         # --- 4. Contact Play Detection ---
         report['is_contact_play'] = any(
             current_board_obj.get(nr, nc) == opponent
-            for nr, nc in self._neighbors(r, c, board_size) # Fixed: Use self._neighbors
+            for nr, nc in self._neighbors(r, c, board_size)
         )
 
-        # --- 5. Hane Detection (diagonal contact with opponent) ---
-        diagonals = [
-            (r-1, c-1), (r-1, c+1), (r+1, c-1), (r+1, c+1)
-        ]
-        report['is_hane'] = any(
-            0 <= dr < board_size and 0 <= dc < board_size and current_board_obj.get(dr, dc) == opponent
-            for dr, dc in diagonals
-        )
+        # --- 5. Hane Detection ---
+        report['is_hane'] = False
+        # A hane must be a contact play.
+        if report['is_contact_play']:
+            # The played stone (r, c) is a hane if:
+            # It's adjacent to an opponent stone (nr_opp, nc_opp)
+            # AND the point on the *other side* of (r, c) in the same direction (r - dr_to_opp, c - dc_to_opp)
+            # is a friendly stone.
+            
+            for nr_opp, nc_opp in self._neighbors(r, c, board_size):
+                if current_board_obj.get(nr_opp, nc_opp) == opponent:
+                    # Found an adjacent opponent stone (nr_opp, nc_opp)
+                    
+                    # Calculate vector from played stone (r,c) to opponent stone (nr_opp, nc_opp)
+                    dr_to_opp = nr_opp - r
+                    dc_to_opp = nc_opp - c
+
+                    # Calculate the coordinate on the "other side"
+                    nr_other_side = r - dr_to_opp
+                    nc_other_side = c - dc_to_opp
+                    
+                    if (0 <= nr_other_side < board_size and 0 <= nc_other_side < board_size and
+                        current_board_obj.get(nr_other_side, nc_other_side) == player):
+                        # This confirms the F-P-O straight line pattern, which is a hane.
+                        report['is_hane'] = True
+                        break # Found a hane, no need to check other opponent neighbors
+                if report['is_hane']:
+                    break # Found a hane, no need to check other opponent neighbors
+
 
         # --- 6. Connection Detection (did this move connect two friendly groups?) ---
-        friendly_neighbors = [
-            (nr, nc) for nr, nc in self._neighbors(r, c, board_size) # Fixed: Use self._neighbors
-            if current_board_obj.get(nr, nc) == player
-        ]
+        friendly_neighbors = []
+        for nr, nc in self._neighbors(r, c, board_size):
+            if current_board_obj.get(nr, nc) == player:
+                friendly_neighbors.append((nr, nc))
+        
         report['connections_made'] = len(friendly_neighbors) > 1
 
         # --- 7. Cut Detection (did this move cut opponent groups?) ---
-        # If two or more opponent groups are adjacent and not connected after the move, it's a cut
-        opp_groups = []
-        seen = set()
-        for nr, nc in self._neighbors(r, c, board_size): # Fixed: Use self._neighbors
+        distinct_opp_groups_adjacent = set()
+        for nr, nc in self._neighbors(r, c, board_size):
             if current_board_obj.get(nr, nc) == opponent:
-                group = frozenset(self.get_group(current_board_obj, (nr, nc)))
-                if group not in seen:
-                    opp_groups.append(group)
-                    seen.add(group)
-        report['cuts_made'] = len(opp_groups) > 1
+                distinct_opp_groups_adjacent.add(frozenset(self.get_group(current_board_obj, (nr, nc))))
+        
+        report['cuts_made'] = len(distinct_opp_groups_adjacent) > 1
 
         # --- 8. Eye Creation Detection (did this move create an eye?) ---
-        # An eye is a surrounded empty point; check if the move filled the last liberty of a group
         report['eyes_created'] = False
-        # Simple heuristic: if all neighbors are friendly, it's likely an eye
-        if all(
-            0 <= nr < board_size and 0 <= nc < board_size and
-            (current_board_obj.get(nr, nc) == player or current_board_obj.get(nr, nc) is None)
-            for nr, nc in self._neighbors(r, c, board_size) # Fixed: Use self._neighbors
-        ):
-            report['eyes_created'] = True
+        for nr_empty, nc_empty in self._neighbors(r, c, board_size):
+            if current_board_obj.get(nr_empty, nc_empty) is None: # Found an empty neighbor
+                is_eye_candidate = True
+                for nnr, nnc in self._neighbors(nr_empty, nc_empty, board_size):
+                    if (nnr, nnc) == (r, c): # Skip the just played stone itself
+                        continue
+                    if current_board_obj.get(nnr, nnc) != player:
+                        is_eye_candidate = False
+                        break
+                if is_eye_candidate:
+                    report['eyes_created'] = True
+                    break 
 
         # --- 9. Shape Assessment (very basic) ---
         report['shape_assessment'] = {}
-        # Empty triangle: three stones of same color in an L shape
-        empty_triangle = False
-        # This part of the logic for empty_triangle is a bit off.
-        # It's checking if two specific neighbors have the player's color, but not
-        # forming an 'L' shape with the played stone.
-        # A proper empty triangle check would be more involved, typically
-        # checking the stone itself and two of its orthogonal neighbors.
-        # For simplicity and to match the original intent, I'm keeping the structure,
-        # but be aware this isn't a robust empty triangle detection.
-        for dr, dc in [(-1, 0), (0, -1), (1, 0), (0, 1)]:
-            # Check orthogonal neighbors
-            nr1, nc1 = r + dr, c + dc
-            # Check the "other" stone of the L-shape, relative to the first neighbor
-            # This part needs refinement for a true empty triangle.
-            # As it stands, it's checking the same neighbor coordinates, which is incorrect.
-            # For now, I'll just ensure the loop variable is used.
-            # A more robust empty triangle check would be like:
-            # (r, c) is the new stone. Check if (r+dr, c) and (r, c+dc) are friendly,
-            # and then (r+dr, c+dc) is empty.
-            # Given the original code's structure, I'll make a minor correction
-            # to make it syntactically valid and match the *apparent* intent,
-            # but note that the empty triangle logic itself could be improved.
-            
-            # The original code `nr2, nc2 = r + dr, c + dc` is a duplicate.
-            # To somewhat reflect an L-shape check, we might consider a specific corner,
-            # or more generally, check if any two orthogonal neighbors are friendly.
-            # For now, let's make it syntactically correct and let the user refine the logic.
-            # A very basic check for two orthogonal friendly neighbors:
-            for dr2, dc2 in [(-1, 0), (0, -1), (1, 0), (0, 1)]:
-                if (dr, dc) == (dr2, dc2): # Avoid checking the same neighbor twice for the pair
-                    continue
-                nr1, nc1 = r + dr, c + dc
-                nr2, nc2 = r + dr2, c + dc2
-
-                if (0 <= nr1 < board_size and 0 <= nc1 < board_size and
-                    0 <= nr2 < board_size and 0 <= nc2 < board_size):
-                    # Check if the played stone (r,c) and two *other* orthogonal stones form an 'L' with an empty spot
-                    # This check is still not a standard empty triangle.
-                    # A true empty triangle usually involves 3 stones forming an L-shape and one empty point
-                    # or a point played into an empty triangle.
-                    # For example, if (r,c) is the new stone, (r+1,c) and (r,c+1) are same color, and (r+1,c+1) is empty.
-                    
-                    # Based on the original code, it seems it was trying to check if two direct
-                    # neighbors of the same color exist. Let's simplify this part slightly
-                    # to make it valid and leave the complex "empty triangle" logic
-                    # for future refinement if needed.
-                    
-                    # Let's assume an empty triangle is formed if the played stone, plus two orthogonal
-                    # *existing* stones of the same color, form an 'L' shape, with the corner being empty before.
-                    # The original code's intent for `empty_triangle` here is ambiguous in context of `analyze_nuances_after_move`.
-                    # For a basic fix, I'll interpret the original intent as looking for two friendly neighbors around the played stone.
-                    # If this is not the intended empty triangle definition, it needs to be revised.
-
-                    # Let's simplify the 'empty_triangle' check based on the provided code structure:
-                    # It was trying to see if two neighbors (nr1, nc1) and (nr2, nc2) were friendly.
-                    # The original `nr2, nc2 = r + dr, c + dc` was a copy.
-                    # Let's check for two distinct friendly orthogonal neighbors.
-                    friendly_orthogonal_neighbors = []
-                    for _dr, _dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-                        nnr, nnc = r + _dr, c + _dc
-                        if (0 <= nnr < board_size and 0 <= nnc < board_size and
-                            current_board_obj.get(nnr, nnc) == player):
-                            friendly_orthogonal_neighbors.append((nnr, nnc))
-                    if len(friendly_orthogonal_neighbors) >= 2:
-                        empty_triangle = True # A very loose interpretation
-
-        report['shape_assessment']['empty_triangle'] = empty_triangle
+        friendly_orthogonal_neighbors_count = 0
+        for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+            nr, nc = r + dr, c + dc
+            if (0 <= nr < board_size and 0 <= nc < board_size and
+                current_board_obj.get(nr, nc) == player):
+                friendly_orthogonal_neighbors_count += 1
+        
+        report['shape_assessment']['forms_corner_like_shape'] = (friendly_orthogonal_neighbors_count >= 2)
 
         # --- 10. Musical Intensity Mapping ---
-        if report.get('self_atari') or report.get('atari_threats'):
+        if report.get('self_atari') or report.get('atari'):
             report['musical_intensity'] = 'high_tension'
         elif report.get('type') == 'Capture':
             report['musical_intensity'] = 'percussive_hit'
@@ -245,14 +219,14 @@ class GameAnalyzer:
             return set()
         visited = set()
         stack = [pos]
-        board_size = board.side # Get board size from the board object
+        board_size = board.side 
         while stack:
             r, c = stack.pop()
             if (r, c) in visited:
                 continue
             if board.get(r, c) == color:
                 visited.add((r, c))
-                for nr, nc in self._neighbors(r, c, board_size): # Fixed: Use self._neighbors
+                for nr, nc in self._neighbors(r, c, board_size):
                     if (nr, nc) not in visited:
                         stack.append((nr, nc))
         return visited
@@ -269,9 +243,9 @@ class GameAnalyzer:
     def get_liberties(self, board: sgfmill.boards.Board, group: set[tuple[int, int]]) -> set[tuple[int, int]]:
         """Returns the set of liberties (empty adjacent points) for a group."""
         liberties = set()
-        board_size = board.side # Get board size from the board object
+        board_size = board.side 
         for r, c in group:
-            for nr, nc in self._neighbors(r, c, board_size): # Fixed: Use self._neighbors
+            for nr, nc in self._neighbors(r, c, board_size):
                 if board.get(nr, nc) is None:
                     liberties.add((nr, nc))
         return liberties
