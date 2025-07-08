@@ -52,8 +52,8 @@ function setupWGoPlayer(sgfString) {
         showTools: false, // Hide built-in tools
         layout: {
                     // Remove 'Control' from here.
-                    // bottom: ['Control'],
-                    // left: ['InfoBox', 'CommentBox'], // If you have these, they'll still show
+                    bottom: ['Control'],
+                    left: ['InfoBox', 'CommentBox'], // If you have these, they'll still show
                 },
     });
 
