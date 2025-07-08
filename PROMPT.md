@@ -88,7 +88,7 @@ https://github.com/JulienBernou/gorhapsody/blob/main/go_rhapsody/templates/index
 https://forums.online-go.com/t/what-is-exactly-a-hane/54037
 Some common themes for a hane from the forum include:
 - Involving a "diagonal motion across an opponent's stone."
-O- ften applies to moves around a single opponent's stone or a "stick" (a line of opponent stones).
+- Often applies to moves around a single opponent's stone or a "stick" (a line of opponent stones).
 - Distinction from a "turn" (a solid connection bending around an opponent's stone) or a "wedge" (placing a stone between two opponent stones separated by a one-point jump).
 
 
