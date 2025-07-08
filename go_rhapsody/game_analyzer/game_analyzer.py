@@ -1,8 +1,9 @@
-import sgfmill.sgf
-import sgfmill.boards
+import math
 from logging import getLogger
 from typing import List, Tuple, Set, Optional, Dict, Literal, FrozenSet
-import math
+import sgfmill.sgf
+import sgfmill.boards
+
 
 # --- Type Aliases for Clarity ---
 StoneColorSGF = Literal['b', 'w', None] 
@@ -33,6 +34,8 @@ class GameAnalyzer:
         self.analysis_log: List[Dict] = []
         self.log = getLogger("Analyzer")
         self.log.info(f"GameAnalyzer initialized for a {board_size}x{board_size} board.")
+        # Stores the (row, col) of the previous stone placement. Initialized to None.
+        self.previous_move_coords: Optional[Tuple[int, int]] = None 
 
     def _coords_to_sgf_string(self, r: int, c: int) -> str:
         """
@@ -171,6 +174,25 @@ class GameAnalyzer:
                         min_dist = dist
         return min_dist
 
+    def _calculate_distance_to_previous_move(self, current_move_row: int, current_move_col: int) -> Optional[float]:
+        """
+        Calculates the Euclidean distance between the current move and the previous stone placement.
+        It relies on `self.previous_move_coords` being correctly updated in `analyze_sgf_game`.
+        
+        Returns None if there is no previous stone placement (e.g., first move or after a pass).
+        Requires 'import math' at the top of the file.
+        """
+        current_coords = (current_move_row, current_move_col)
+        previous_coords = self.previous_move_coords 
+
+        if previous_coords is None:
+            return None
+        
+        dx = current_coords[0] - previous_coords[0]
+        dy = current_coords[1] - previous_coords[1]
+        return math.sqrt(dx**2 + dy**2)
+
+
     def _check_atari_threats(self, board: sgfmill.boards.Board, row: int, col: int, player_color: StoneColorSGF) -> Tuple[List[Tuple], List[Tuple]]:
         """
         Checks for opponent groups now in atari or threatening atari (2 liberties).
@@ -255,6 +277,8 @@ class GameAnalyzer:
         report['distance_to_nearest_enemy_stone'] = self._calculate_distance_to_nearest_enemy_stone(
             current_board_obj, row, col, player_color
         )
+        # Corrected call to _calculate_distance_to_previous_move
+        report['distance_from_previous_stone'] = self._calculate_distance_to_previous_move(row, col)
 
         # --- Core Go patterns for Type and Musical Intensity ---
         atari_groups, atari_threat_groups = self._check_atari_threats(current_board_obj, row, col, player_color)
@@ -308,6 +332,9 @@ class GameAnalyzer:
             
             main_sequence: List[sgfmill.sgf.Sgf_node] = list(game.get_main_sequence())
             
+            # Reset previous_move_coords for a new game analysis
+            self.previous_move_coords = None 
+
             for i, node in enumerate(main_sequence[1:], start=1): 
                 analysis_report: Dict = {}
                 analysis_report['move_number'] = i
@@ -333,6 +360,9 @@ class GameAnalyzer:
                     analysis_report['captures'] = []
                     analysis_report['captured_count'] = 0
                     analysis_report['musical_intensity'] = 'rest' 
+                    # For pass moves, distance from previous stone is not applicable
+                    analysis_report['distance_from_previous_stone'] = None
+                    # self.previous_move_coords should NOT be updated on a pass
                 else: # Stone placement move
                     r, c = coords
                     analysis_report['coords'] = (r, c)
@@ -354,6 +384,8 @@ class GameAnalyzer:
                         board_before_move_list=board_before_move_copy,
                         report=analysis_report
                     )
+                    # Update previous_move_coords *after* the current move has been processed
+                    self.previous_move_coords = (r, c)
 
                 analysis_report['board_after_move_state'] = self._board_to_list(board)
                 
