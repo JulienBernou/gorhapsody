@@ -4,7 +4,8 @@ let gameData = []; // Stores analysis reports from backend
 let wgoPlayer; // WGo.js Player instance for SGF playback
 let currentMoveIndex = -1; // -1 means before the first move
 let playbackIntervalId = null;
-const playbackSpeed = 1500; // Milliseconds between moves
+let playbackSpeed = 250; // Milliseconds between moves
+const gamma = 1.05
 
 // DOM elements
 const sgfUploadInput = document.getElementById('sgfUpload');
@@ -114,6 +115,7 @@ function playNextMoveWithWGo() {
         const report = gameData[currentMoveIndex];
         displayMoveAnalysis(report);
         wgoPlayer.next();
+        playbackSpeed = playbackSpeed * gamma
         playbackIntervalId = setTimeout(playNextMoveWithWGo, playbackSpeed);
         // Assuming playMusicalCue is defined elsewhere and handles the report object
         playMusicalCue(report); 
