@@ -1,139 +1,202 @@
 // music_engine.js
-// Ensure AudioContext starts on user interaction
-document.documentElement.addEventListener('mousedown', () => {
-    if (Tone.context.state !== 'running') {
-        Tone.start(); // Changed from Tone.context.resume() to Tone.start()
-        console.log("AudioContext started!");
+
+// --- Audio Context Initialization ---
+// Ensures Tone.js starts only after user interaction, crucial for browser compatibility.
+let audioContextStarted = false;
+
+function startAudioContext() {
+    if (!audioContextStarted) {
+        Tone.start().then(() => {
+            console.log("AudioContext started!");
+            audioContextStarted = true;
+            // Tone.Transport is needed if you plan to use Tone.js's scheduling features like LFOs or sequences.
+            // Keeping it here in case future complexity is added.
+            Tone.Transport.start(); 
+        }).catch(e => {
+            console.error("Error starting AudioContext:", e);
+        });
     }
-}, { once: true }); // Add { once: true } for efficiency
+}
 
-// Define your Tone.js instruments and effects here
-// Let's start with a few basic synths
-const synthLead = new Tone.Synth({
-    oscillator: { type: "sawtooth" },
-    envelope: {
-        attack: 0.05,
-        decay: 0.3,
-        sustain: 0.4,
-        release: 0.8,
+// Attach event listeners to start audio context on user interaction
+document.documentElement.addEventListener('mousedown', startAudioContext);
+document.documentElement.addEventListener('keydown', startAudioContext);
+document.documentElement.addEventListener('touchstart', startAudioContext);
+
+
+// --- Instruments ---
+
+// 1. Pluck Synth: For light, clear "water drop" sounds.
+// Tuned for a quick, decaying pluck with minimal ringing.
+const pluckSynth = new Tone.PluckSynth({
+    attackNoise: 0.8,   // Strength of the initial pluck sound
+    dampening: 5500,    // How fast the sound fades out (higher = faster)
+    resonance: 0.65     // Amount of ringing sustain (lower = less ringing)
+}).toDestination(); // Direct to output for simplicity, will connect to reverb later.
+
+// 2. Marimba/Xylophone like sound: Using a PolySynth with sine waves and specific envelope.
+// Creates a clean, mallet-like tone.
+const marimbaSynth = new Tone.PolySynth(Tone.Synth, {
+    oscillator: {
+        type: "sine" // Pure sine wave for a clean, mellow sound
     },
-    volume: 5 // INCREASE THIS for testing!
-}).toDestination();
-
-const synthPad = new Tone.PolySynth(Tone.Synth, { // PolySynth for chords
-    oscillator: { type: "sine" },
     envelope: {
-        attack: 1,      // Longer attack for a pad sound
-        decay: 0.5,
-        sustain: 0.5,
-        release: 1,     // Longer release for fade out
+        attack: 0.005,    // Very fast attack for mallet feel
+        decay: 0.3,       // Short decay
+        sustain: 0.01,    // Minimal sustain
+        release: 0.8      // Smooth release
     },
-    volume: -0 // Set to 0 or even positive for testing, -10 was quiet
-}).toDestination();
+    filter: { // A low-pass filter to soften the sound, making it less harsh
+        type: "lowpass",
+        frequency: 3200, // Cut off higher frequencies
+        rolloff: -24     // Steeper rolloff for a smoother filter
+    },
+    volume: -10          // Base volume for this synth
+}).toDestination(); // Direct to output for simplicity, will connect to reverb later.
 
-const drumKick = new Tone.MembraneSynth({
-    pitchDecay: 0.05,
-    octaves: 10,
+// 3. Membrane Synth: For a distinct, percussive "thump" or resonant "drop".
+// Useful for emphasizing capture moves.
+const membraneSynth = new Tone.MembraneSynth({
+    pitchDecay: 0.06,    // Rate at which pitch drops after initial attack
+    octaves: 1.0,        // Range of pitch drop
+    oscillator: {
+        type: "sine"     // Pure sine for a clean, resonant hit
+    },
     envelope: {
         attack: 0.001,
-        decay: 0.4,
+        decay: 0.4,      // Moderate decay for a clear 'thump'
         sustain: 0.01,
-        release: 0.5,
+        release: 1.0,
+        attackCurve: 'exponential'
     },
-    oscillator: { type: "sine" },
-    volume: 5 // INCREASE THIS for testing!
+    volume: -7          // Base volume for this synth
+}).toDestination(); // Direct to output for simplicity, will connect to reverb later.
+
+
+// --- Effects ---
+
+// Master Reverb: Provides a spacious, echoing environment for all sounds.
+// Tuned for a natural, slightly long decay like a quiet, open space.
+const masterReverb = new Tone.Reverb({
+    decay: 4.5,       // Longer decay for noticeable echo
+    preDelay: 0.08,   // Short pre-delay for a sense of space
+    wet: 0.5          // Moderate wet signal to blend original and reverbed sound
 }).toDestination();
 
-const drumSnare = new Tone.NoiseSynth({
-    noise: { type: "white" },
-    envelope: {
-        attack: 0.005,
-        decay: 0.1,
-        sustain: 0,
-        release: 0.1,
-    },
-    volume: 5 // INCREASE THIS for testing!
-}).chain(new Tone.Filter(8000, "lowpass"), Tone.Destination);
+// Connect all instruments to the master reverb
+pluckSynth.connect(masterReverb);
+marimbaSynth.connect(masterReverb);
+membraneSynth.connect(masterReverb);
 
 
-// Global NoiseSynth for illegal moves (more efficient than creating every time)
-const illegalMoveNoise = new Tone.NoiseSynth({
-    noise: { type: "pink" }, // A bit richer than white noise
-    envelope: {
-        attack: 0.01,
-        decay: 0.3,
-        sustain: 0,
-        release: 0.5
-    },
-    volume: 8 // Make it noticeable
-}).toDestination();
+// --- Musical Scales and Notes ---
+// A C Major Pentatonic scale (C, D, E, G, A) known for its calming, "zen" quality.
+// Expanded to cover multiple octaves for variety.
+const zenNotes = ["C3", "D3", "E3", "G3", "A3", "C4", "D4", "E4", "G4", "A4", "C5"]; 
+// Notes intended to create subtle tension within the zen framework (chromatic steps).
+const tensionNotes = ["C#4", "Eb4", "F#4", "A#4", "B4"]; 
 
 
-// Main function to interpret Go analysis and play music
-function playMusicalCue(analysisReport) {
-    // Remove the testSynth code you added previously
-    // if (Tone.context.state === 'running') {
-    //     const testSynth = new Tone.MembraneSynth({ ... }).toDestination();
-    //     testSynth.triggerAttackRelease("C4", "0.5s", Tone.now());
-    //     console.log("Played temporary test sound!");
-    // }
+// --- Main Musical Cue Playback Function ---
 
-    // Add checks for Tone.js context and instrument readiness,
-    // though the 'mousedown' listener and loading order should largely prevent issues.
-    if (Tone.context.state !== 'running') {
-        console.warn("Tone.js audio context not running. Cannot play musical cue.");
-        return;
+/**
+ * Plays a musical cue based on the analysis report from the Go game.
+ * Ensures the audio context is active and handles various move types.
+ * @param {object} report - The analysis report for the current move. Can be null for initial state or passes.
+ */
+function playMusicalCue(report) {
+    if (!audioContextStarted) {
+        console.warn("AudioContext not yet started. Click/tap anywhere on the page to enable audio.");
+        return; // Do nothing if audio isn't ready
     }
-    // You might also want to check if the individual synths are initialized,
-    // but if the DOMContentLoaded listener runs, they should be.
 
-    console.log("Musical Cue for:", analysisReport);
-
-    const player = analysisReport.player; // 'B' or 'W'
-    const coords = analysisReport.coords; // [r, c] or null
-    const type = analysisReport.type; // 'Normal Move', 'Capture', 'Pass', 'Illegal Move'
-    const musicalIntensity = analysisReport.musical_intensity || 'background_pulse'; // Default if not set
-
-    let baseMidi = player === 'B' ? Tone.Midi('C4').toMidi() : Tone.Midi('G4').toMidi();
-    if (coords) {
-        baseMidi += (coords[0] % 7) + (coords[1] % 5);
+    // Handle null or undefined reports gracefully (e.g., at game start or reset before first move)
+    if (!report) {
+        console.log("No analysis report received for musical cue (e.g., initial board state).");
+        return; // Exit without playing sound
     }
-    const baseFrequency = Tone.Midi(baseMidi).toFrequency(); // Convert only at the end
 
-    const now = Tone.now(); // Get current Tone.js time for precise scheduling
+    let noteToPlay = null; 
+    let instrument = pluckSynth; // Default instrument
+    let baseVolume = -15;        // Default base volume in dB for subtle background sounds
+    let duration = "8n";         // Default note duration (eighth note)
 
-    // --- Musical Mappings ---
-    switch (musicalIntensity) {
-        case 'percussive_hit':
-            console.log("  - Musical: Percussive hit (Capture)");
-            drumKick.triggerAttackRelease("C2", "8n", now);
-            drumSnare.triggerAttackRelease("8n", now + 0.05);
-            synthLead.triggerAttackRelease(Tone.Midi(baseMidi + 7).toFrequency(), '8n', now, 0.9);
+    // Select instrument, note, and volume based on the report type
+    switch (report.type) {
+        case 'Capture':
+            instrument = membraneSynth; // Use membrane synth for a distinct "hit" sound
+            noteToPlay = zenNotes[0];  // C3, a lower, more impactful note
+            baseVolume = -3;           // Louder for emphasis
+            duration = "0.4s";         // Slightly longer duration
             break;
-        case 'high_tension':
-            console.log("  - Musical: High tension (Atari/Self-Atari)");
-            synthLead.triggerAttackRelease(Tone.Midi(baseMidi + 5).toFrequency(), '16n', now, 0.8);
-            synthLead.triggerAttackRelease(Tone.Midi(baseMidi + 8).toFrequency(), '16n', now + 0.15, 0.8);
-            // Increased duration for pad to make it more noticeable
-            synthPad.triggerAttackRelease([Tone.Midi(baseMidi - 12).toFrequency(), Tone.Midi(baseMidi).toFrequency()], '1n', now, 0.6); // Changed from '4n' to '1n'
+        case 'Atari':
+            instrument = pluckSynth;
+            // Play two notes quickly to create tension
+            const atariNote1 = tensionNotes[Math.floor(Math.random() * tensionNotes.length)] || zenNotes[zenNotes.length - 1];
+            const atariNote2 = Tone.Frequency(atariNote1).transpose(7).toNote(); // A perfect fifth up
+            baseVolume = -6;
+            
+            instrument.triggerAttackRelease(atariNote1, "8n", Tone.now());
+            Tone.Transport.scheduleOnce(() => {
+                instrument.triggerAttackRelease(atariNote2, "16n"); // Second note quicker
+            }, Tone.now() + Tone.Time("16n").toSeconds());
+            return; // Exit here as notes are scheduled
+        case 'Atari Threat':
+            instrument = pluckSynth;
+            // Play two notes quickly for rising tension
+            const threatNote1 = zenNotes[Math.floor(Math.random() * zenNotes.length)];
+            const threatNote2 = Tone.Frequency(threatNote1).transpose(3).toNote(); // A minor third up
+            baseVolume = -8;
+            
+            instrument.triggerAttackRelease(threatNote1, "16n", Tone.now());
+            Tone.Transport.scheduleOnce(() => {
+                instrument.triggerAttackRelease(threatNote2, "16n");
+            }, Tone.now() + Tone.Time("32n").toSeconds());
+            return; // Exit here as notes are scheduled
+        case 'Contact Move':
+            instrument = pluckSynth;
+            noteToPlay = zenNotes[3]; // G3, a slightly higher, clear pluck
+            baseVolume = -10;
+            duration = "8n";
             break;
-        case 'background_pulse':
-            console.log("  - Musical: Background pulse (Normal Move)");
-            // Increased duration and velocity for pulse
-            synthPad.triggerAttackRelease(Tone.Midi(baseMidi - 12).toFrequency(), '4n', now, 0.6); // Changed from '8n' to '4n', velocity from 0.4 to 0.6
+        case 'Central Move': 
+            instrument = marimbaSynth; // Marimba for harmonious central moves
+            noteToPlay = zenNotes[6]; // E4, a bright, central note
+            baseVolume = -9;
+            duration = "0.3s";
             break;
+        case 'Normal Move': 
+            instrument = pluckSynth;
+            // Random note from the middle-to-higher range for a gentle background pulse
+            noteToPlay = zenNotes[Math.floor(Math.random() * 5) + 4]; // e.g., G3 to A4
+            baseVolume = -16;
+            duration = "8n";
+            break;
+        case 'ResetGame': 
+            // A calming, sustained chord for game reset
+            marimbaSynth.triggerAttackRelease(["C3", "E3", "G3", "C4"], "2s", Tone.now(), 0.8);
+            return; // Exit
+        case 'FinishedGame': 
+            // A conclusive, sustained chord for game end
+            marimbaSynth.triggerAttackRelease(["C4", "A3", "F3", "D3"], "2s", Tone.now(), 0.8);
+            return; // Exit
+        case 'Pass': 
+            // Explicitly no sound for pass moves, contributes to zen feel
+            return; // Exit
         default:
-            if (type === 'Pass') {
-                console.log("  - Musical: Ambient fade (Pass)");
-                synthPad.triggerAttackRelease(['C3', 'E3', 'G3'], '2n', now, 0.5); // Increased velocity
-            } else if (type === 'Illegal Move') {
-                console.log("  - Musical: Harsh noise (Illegal Move)");
-                // Now using the globally defined illegalMoveNoise synth
-                illegalMoveNoise.triggerAttackRelease('8n', now, 1.0);
-            } else {
-                console.log("  - Musical: Default subtle sound.");
-                synthLead.triggerAttackRelease(baseFrequency, '8n', now, 0.8); // Increased duration to '8n', velocity from 0.6 to 0.8
-            }
-            break;
+            // Fallback for any unhandled or new move types
+            instrument = pluckSynth;
+            noteToPlay = zenNotes[Math.floor(Math.random() * zenNotes.length)];
+            baseVolume = -18; // Very subtle
+            duration = "8n";
+    }
+
+    // Final check before playing, ensuring a valid note and volume
+    if (noteToPlay && typeof baseVolume === 'number') {
+        // Smoothly ramp the volume to the target level to avoid clicks/pops
+        instrument.volume.rampTo(baseVolume, 0.01); // Very quick ramp (10ms)
+        instrument.triggerAttackRelease(noteToPlay, duration);
+    } else {
+        console.warn(`Attempted to play a musical cue with invalid note or volume: Note: ${noteToPlay}, Volume: ${baseVolume}`);
     }
 }
