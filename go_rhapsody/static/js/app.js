@@ -76,6 +76,7 @@ function setupWGoPlayer(sgfString) {
 function playNextMoveWithWGo() {
     if (currentMoveIndex < gameData.length - 1) {
         currentMoveIndex++;
+            else analysisText += `Type: ${report.type}`;
         wgoPlayer.next();
         playbackIntervalId = setTimeout(playNextMoveWithWGo, playbackSpeed);
         playMusicalCue({type: 'Normal Move'});
