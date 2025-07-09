@@ -5,7 +5,7 @@ let wgoPlayer; // WGo.js Player instance for SGF playback
 let currentMoveIndex = -1; // -1 means before the first move
 let playbackIntervalId = null;
 let playbackSpeed = 250; // Milliseconds between moves
-const gamma = 0.95
+const gamma = 0.99
 
 // DOM elements
 const sgfUploadInput = document.getElementById('sgfUpload');
@@ -105,6 +105,13 @@ function displayMoveAnalysis(report) {
              analysisText += `Closest Enemy: ${report.distance_to_nearest_enemy_stone.toFixed(2)}<br>`;
         } else {
              analysisText += `Closest Enemy: N/A (no enemy stones)<br>`;
+        }
+
+        // Distance from previous friendly stone
+        if (report.distance_from_previous_friendly_stone !== null && report.distance_from_previous_friendly_stone !== undefined) {
+             analysisText += `Previous Friendly Stone: ${report.distance_from_previous_friendly_stone.toFixed(2)}<br>`;
+        } else {
+             analysisText += `Previous Friendly Stone: N/A (no enemy stones)<br>`;
         }
     }
     analysisDiv.innerHTML = analysisText;
