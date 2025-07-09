@@ -11,7 +11,7 @@ function startAudioContext() {
             audioContextStarted = true;
             // Tone.Transport is needed if you plan to use Tone.js's scheduling features like LFOs or sequences.
             // Keeping it here in case future complexity is added.
-            Tone.Transport.start(); 
+            Tone.Transport.start();
         }).catch(e => {
             console.error("Error starting AudioContext:", e);
         });
@@ -43,7 +43,7 @@ const marimbaSynth = new Tone.PolySynth(Tone.Synth, {
         rolloff: -24     // Steeper rolloff for a smoother filter
     },
     volume: -10          // Base volume for this synth
-}).toDestination(); 
+}).toDestination();
 
 // 2. Membrane Synth: For a distinct, percussive "thump" (Capture moves)
 const membraneSynth = new Tone.MembraneSynth({
@@ -60,7 +60,7 @@ const membraneSynth = new Tone.MembraneSynth({
         attackCurve: 'exponential'
     },
     volume: -7          // Base volume for this synth
-}).toDestination(); 
+}).toDestination();
 
 // 3. Gentle Synth: A softer, more "fengshui" mallet sound.
 // Now used for Black's Normal Move, and also for tension/contact sounds.
@@ -94,7 +94,6 @@ const masterReverb = new Tone.Reverb({
 }).toDestination();
 
 // Connect all instruments to the master reverb
-// pluckSynth is removed here too.
 marimbaSynth.connect(masterReverb);
 membraneSynth.connect(masterReverb);
 gentleSynth.connect(masterReverb);
@@ -103,10 +102,45 @@ gentleSynth.connect(masterReverb);
 // --- Musical Scales and Notes ---
 // A C Major Pentatonic scale (C, D, E, G, A) known for its calming, "zen" quality.
 // Expanded to cover multiple octaves for variety.
-const zenNotes = ["C3", "D3", "E3", "G3", "A3", "C4", "D4", "E4", "G4", "A4", "C5"]; 
+const zenNotes = ["C3", "D3", "E3", "G3", "A3", "C4", "D4", "E4", "G4", "A4", "C5", "D5", "E5"];
 // Notes intended to create subtle tension within the zen framework (chromatic steps).
-const tensionNotes = ["C#4", "Eb4", "F#4", "A#4", "B4"]; 
+const tensionNotes = ["C#4", "Eb4", "F#4", "A#4", "B4"];
 
+// --- State for Pitch Tracking ---
+// Tracks consecutive distance-1 moves for pitch progression
+const PITCH_INCREMENT_SEMITONES = 2; // Increase pitch by a whole step (2 semitones)
+const MAX_PITCH_OFFSET = 12; // Max 1 octave increase from base note index
+
+// Base note indices for each player within the zenNotes scale
+const BLACK_BASE_ZEN_INDEX = 0; // C3
+const WHITE_BASE_ZEN_INDEX = 6; // C4
+
+const pitchState = {
+    'B': {
+        consecutiveDist1: 0,
+        currentPitchOffset: 0,
+        currentZenNoteIndex: BLACK_BASE_ZEN_INDEX,
+        lastPlayedNote: null
+    },
+    'W': {
+        consecutiveDist1: 0,
+        currentPitchOffset: 0,
+        currentZenNoteIndex: WHITE_BASE_ZEN_INDEX,
+        lastPlayedNote: null
+    }
+};
+
+// --- Helper to get notes from scale with offset ---
+// This function now specifically applies pitchOffsetSemitones on top of the
+// current note determined by the melodic progression (currentZenNoteIndex).
+function getNoteFromZenScale(playerColor, pitchOffsetSemitones) {
+    const playerState = pitchState[playerColor];
+    const baseMidiNote = Tone.Frequency(zenNotes[playerState.currentZenNoteIndex]).toMidi();
+    const finalMidiNote = baseMidiNote + pitchOffsetSemitones;
+
+    // Convert back to a note string (e.g., "C4", "D#4")
+    return Tone.Frequency(finalMidiNote, "midi").toNote();
+}
 
 // --- Main Musical Cue Playback Function ---
 
@@ -127,96 +161,170 @@ function playMusicalCue(report) {
         return; // Exit without playing sound
     }
 
-    let noteToPlay = null; 
     let instrument = gentleSynth; // Default instrument is now gentleSynth
     let baseVolume = -15;        // Default base volume in dB for subtle background sounds
     let duration = "8n";         // Default note duration (eighth note)
+    let noteToPlay = null;
+
+    const player = report.player;
+    const isPlayerMove = (player === 'B' || player === 'W'); // True if it's a Black or White stone placement
+
+    // --- Reset Logic for Pitch State (Consecutive Distance 1 & Melodic Progression) ---
+    // This complex logic ensures streaks are broken correctly when players alternate,
+    // or when special game events occur.
+    if (report.type === 'Pass' || report.type === 'ResetGame' || report.type === 'FinishedGame') {
+        // Full reset for both players on these global game state changes
+        pitchState['B'] = { consecutiveDist1: 0, currentPitchOffset: 0, currentZenNoteIndex: BLACK_BASE_ZEN_INDEX, lastPlayedNote: null };
+        pitchState['W'] = { consecutiveDist1: 0, currentPitchOffset: 0, currentZenNoteIndex: WHITE_BASE_ZEN_INDEX, lastPlayedNote: null };
+    } else if (isPlayerMove) {
+        // If current player is B and last played was W, reset W's state
+        if (player === 'B' && pitchState['W'].lastPlayedNote !== null) {
+            pitchState['W'].consecutiveDist1 = 0;
+            pitchState['W'].currentPitchOffset = 0;
+            pitchState['W'].currentZenNoteIndex = WHITE_BASE_ZEN_INDEX; // Reset melodic index
+            pitchState['W'].lastPlayedNote = null;
+        }
+        // If current player is W and last played was B, reset B's state
+        else if (player === 'W' && pitchState['B'].lastPlayedNote !== null) {
+            pitchState['B'].consecutiveDist1 = 0;
+            pitchState['B'].currentPitchOffset = 0;
+            pitchState['B'].currentZenNoteIndex = BLACK_BASE_ZEN_INDEX; // Reset melodic index
+            pitchState['B'].lastPlayedNote = null;
+        }
+    }
+
+    // --- Update currentPitchOffset based on distance_from_previous_friendly_stone (BEFORE switch) ---
+    // This state update happens for all relevant player moves, even if the pitchOffset isn't *applied*
+    // for a specific move type (like 'Contact Move').
+    let currentPitchOffsetFromDist1 = 0;
+    if (isPlayerMove) {
+        let playerState = pitchState[player];
+        const distance = report.distance_from_previous_friendly_stone;
+
+        if (distance === 1.0) {
+            playerState.consecutiveDist1++;
+            playerState.currentPitchOffset = Math.min(
+                playerState.currentPitchOffset + PITCH_INCREMENT_SEMITONES,
+                MAX_PITCH_OFFSET
+            );
+        } else {
+            // Reset consecutive distance 1 streak if not 1.0
+            playerState.consecutiveDist1 = 0;
+            playerState.currentPitchOffset = 0;
+        }
+        currentPitchOffsetFromDist1 = playerState.currentPitchOffset; // Store for use in switch
+    }
+
 
     // Select instrument, note, and volume based on the report type
     switch (report.type) {
         case 'Capture':
-            instrument = membraneSynth; // Still membraneSynth for distinct thump
-            noteToPlay = zenNotes[0];  // C3, a lower, more impactful note
-            baseVolume = -3;           // Louder for emphasis
-            duration = "0.4s";         // Slightly longer duration
+            instrument = membraneSynth;
+            noteToPlay = zenNotes[0]; // C3
+            baseVolume = -3;
+            duration = "0.4s";
             break;
         case 'Atari':
-            instrument = gentleSynth; // Now using gentleSynth for tension
-            // Play two notes quickly to create tension
+            instrument = gentleSynth;
             const atariNote1 = tensionNotes[Math.floor(Math.random() * tensionNotes.length)] || zenNotes[zenNotes.length - 1];
-            const atariNote2 = Tone.Frequency(atariNote1).transpose(7).toNote(); // A perfect fifth up
+            const atariNote2 = Tone.Frequency(atariNote1).transpose(7).toNote();
             baseVolume = -6;
-            
+
             instrument.triggerAttackRelease(atariNote1, "8n", Tone.now());
             Tone.Transport.scheduleOnce(() => {
-                instrument.triggerAttackRelease(atariNote2, "16n"); // Second note quicker
+                instrument.triggerAttackRelease(atariNote2, "16n");
             }, Tone.now() + Tone.Time("16n").toSeconds());
-            return; // Exit here as notes are scheduled
+            return;
         case 'Atari Threat':
-            instrument = gentleSynth; // Now using gentleSynth for tension
-            // Play two notes quickly for rising tension
+            instrument = gentleSynth;
             const threatNote1 = zenNotes[Math.floor(Math.random() * zenNotes.length)];
-            const threatNote2 = Tone.Frequency(threatNote1).transpose(3).toNote(); // A minor third up
+            const threatNote2 = Tone.Frequency(threatNote1).transpose(3).toNote();
             baseVolume = -8;
-            
+
             instrument.triggerAttackRelease(threatNote1, "16n", Tone.now());
             Tone.Transport.scheduleOnce(() => {
                 instrument.triggerAttackRelease(threatNote2, "16n");
             }, Tone.now() + Tone.Time("32n").toSeconds());
-            return; // Exit here as notes are scheduled
+            return;
         case 'Contact Move':
-            instrument = gentleSynth; // Now using gentleSynth for direct interaction
-            noteToPlay = zenNotes[3]; // G3, a slightly higher, clear pluck
-            baseVolume = -10;
+            instrument = gentleSynth;
+            // !!! PITCH CHANGE REMOVED FOR CONTACT MOVE !!!
+            // We still use the zen note sequence, but WITHOUT the distance-1 pitch offset.
+            if (player === 'B') {
+                noteToPlay = getNoteFromZenScale('B', 0); // Pass 0 for pitchOffsetSemitones
+            } else if (player === 'W') {
+                noteToPlay = getNoteFromZenScale('W', 0); // Pass 0 for pitchOffsetSemitones
+            }
+            // !!! ACCENT CREATED WITH VOLUME !!!
+            baseVolume = -5; // Significantly louder for an accent
             duration = "8n";
             break;
-        case 'Central Move': 
-            instrument = marimbaSynth; // Still marimba for harmonious central moves
-            noteToPlay = zenNotes[6]; // E4, a bright, central note
+        case 'Central Move':
+            instrument = marimbaSynth;
+            if (player === 'B') {
+                noteToPlay = getNoteFromZenScale('B', currentPitchOffsetFromDist1);
+            } else if (player === 'W') {
+                noteToPlay = getNoteFromZenScale('W', currentPitchOffsetFromDist1);
+            }
             baseVolume = -9;
             duration = "0.3s";
             break;
-        case 'Normal Move': 
-            baseVolume = -16; 
-            duration = "8n";  
+        case 'Normal Move':
+            baseVolume = -16;
+            duration = "8n";
 
-            // Determine instrument AND note based on player
-            if (report.player === 'B') {
-                instrument = gentleSynth; // Black player uses the soft gentleSynth
-                noteToPlay = zenNotes[Math.floor(Math.random() * 7)]; 
-            } else if (report.player === 'W') {
-                instrument = marimbaSynth; // White player uses marimbaSynth
-                noteToPlay = zenNotes[Math.floor(Math.random() * 4) + 7]; 
+            if (player === 'B') {
+                instrument = gentleSynth;
+                noteToPlay = getNoteFromZenScale('B', currentPitchOffsetFromDist1);
+            } else if (player === 'W') {
+                instrument = marimbaSynth;
+                noteToPlay = getNoteFromZenScale('W', currentPitchOffsetFromDist1);
             } else {
-                // Fallback if player information is missing or unexpected
                 console.warn("Player information missing or invalid for Normal Move. Playing a default C4 with gentleSynth.");
-                instrument = gentleSynth; // Default instrument is the softer one
-                noteToPlay = "C4"; 
+                instrument = gentleSynth;
+                noteToPlay = "C4";
+                currentPitchOffsetFromDist1 = 0; // Reset offset for invalid player
             }
             break;
-        case 'ResetGame': 
+        case 'ResetGame':
+            // Reset logic already handled at the top
             marimbaSynth.triggerAttackRelease(["C3", "E3", "G3", "C4"], "2s", Tone.now(), 0.8);
-            return; 
-        case 'FinishedGame': 
+            return;
+        case 'FinishedGame':
+            // Reset logic already handled at the top
             marimbaSynth.triggerAttackRelease(["C4", "A3", "F3", "D3"], "2s", Tone.now(), 0.8);
-            return; 
-        case 'Pass': 
-            // Explicitly no sound for pass moves, contributes to zen feel
-            return; 
+            return;
+        case 'Pass':
+            // Reset logic already handled at the top
+            return;
         default:
             // Fallback for any unhandled or new move types
-            instrument = gentleSynth; // Use gentleSynth for unknown types
-            noteToPlay = zenNotes[Math.floor(Math.random() * zenNotes.length)];
-            baseVolume = -18; // Very subtle
+            instrument = gentleSynth;
+            noteToPlay = getNoteFromZenScale('B', 0); // Default to Black's base with no offset
+            baseVolume = -18;
             duration = "8n";
+            currentPitchOffsetFromDist1 = 0;
+            break;
     }
 
     // Final check before playing, ensuring a valid note and volume
     if (noteToPlay && typeof baseVolume === 'number') {
-        // Smoothly ramp the volume to the target level to avoid clicks/pops
-        instrument.volume.rampTo(baseVolume, 0.01); // Very quick ramp (10ms)
+        instrument.volume.rampTo(baseVolume, 0.01);
         instrument.triggerAttackRelease(noteToPlay, duration);
+
+        if (isPlayerMove) {
+            // Update the last played note for the current player
+            pitchState[player].lastPlayedNote = noteToPlay;
+
+            // Increment the currentZenNoteIndex for the *next* move by this player
+            // This creates the consecutive pitch sequence
+            if (player === 'B') {
+                pitchState['B'].currentZenNoteIndex = (pitchState['B'].currentZenNoteIndex + 1) % zenNotes.length;
+            } else if (player === 'W') {
+                pitchState['W'].currentZenNoteIndex = (pitchState['W'].currentZenNoteIndex + 1) % zenNotes.length;
+            }
+        }
     } else {
-        console.warn(`Attempted to play a musical cue with invalid note or volume: Note: ${noteToPlay}, Volume: ${baseVolume}`);
+        console.warn(`Attempted to play a musical cue with invalid note or volume: Note: ${noteToPlay}, Volume: ${baseVolume}, Report:`, report);
     }
 }

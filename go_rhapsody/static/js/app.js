@@ -5,7 +5,7 @@ let wgoPlayer; // WGo.js Player instance for SGF playback
 let currentMoveIndex = -1; // -1 means before the first move
 let playbackIntervalId = null;
 let playbackSpeed = 250; // Milliseconds between moves
-const gamma = 0.99
+const gamma = 1
 
 // DOM elements
 const sgfUploadInput = document.getElementById('sgfUpload');
