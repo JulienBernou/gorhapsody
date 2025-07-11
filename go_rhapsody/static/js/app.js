@@ -5,7 +5,7 @@ let wgoPlayer; // WGo.js Player instance for SGF playback
 let currentMoveIndex = -1; // -1 means before the first move
 let playbackIntervalId = null;
 let playbackSpeed = 250; // Milliseconds between moves
-const gamma = 1
+const gamma = .999
 
 // DOM elements
 const sgfUploadInput = document.getElementById('sgfUpload');
@@ -166,6 +166,7 @@ function goToNextMove() {
 function stopPlayback() {
     pausePlayback(); // Clear any ongoing playback
     currentMoveIndex = -1; // Reset index to before the first move
+    playbackSpeed = 250
     wgoPlayer.first(); // Reset WGo.js board to initial state
     setPlayPauseButton(false); // Update button text to 'Play'
     displayMoveAnalysis(null); // Clear analysis display or show initial message
