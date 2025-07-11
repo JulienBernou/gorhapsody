@@ -9,7 +9,6 @@ const gamma = .999
 
 // DOM elements
 const sgfUploadInput = document.getElementById('sgfUpload');
-// const startButton = document.getElementById('startButton'); // Removed: Deprecated and not used
 const playPauseBtn = document.getElementById('playPauseBtn');
 const prevBtn = document.getElementById('prevBtn');
 const nextBtn = document.getElementById('nextBtn');
@@ -60,62 +59,83 @@ function setupWGoPlayer(sgfString) {
     // Our display and musical cue logic is handled by displayMoveAnalysis in our custom playback functions.
 }
 
+
 function displayMoveAnalysis(report) {
     let analysisText = ``;
 
-    if (!report) { // Case for initial state (currentMoveIndex = -1) or no game loaded
-        analysisText = `<strong>No move selected or game not started.</strong>`;
-    } else if (report.type === 'Pass') {
-        analysisText = `<strong>Move ${report.move_number} (${report.player}): Pass</strong><br>`;
-        analysisText += `Type: ${report.type}`;
-    } else {
-        analysisText += `<strong>Move ${report.move_number} (${report.player}): ${report.sgf_coords}</strong><br>`;
-        
-        // Display Main Move Type
-        analysisText += `Type: ${report.type}`;
-
-        // Add specifics based on the determined type
-        if (report.type === 'Capture' && report.captured_count > 0) {
-            analysisText += ` (Captured ${report.captured_count} stone(s))`;
-        } else if (report.type === 'Atari' && report.atari && report.atari.length > 0) {
-            analysisText += ` (Threatening ${report.atari.length} group(s) in atari)`;
-        } else if (report.type === 'Atari Threat' && report.atari_threats && report.atari_threats.length > 0) {
-            analysisText += ` (Created atari threat on ${report.atari_threats.length} group(s))`;
-        }
-
-        analysisText += `<br><br>`;
-        analysisText += `<strong>Distances:</strong><br>`;
-        
-        // Distance from center
-        if (report.distance_from_center !== null && report.distance_from_center !== undefined) {
-             analysisText += `Center: ${report.distance_from_center.toFixed(2)}<br>`;
-        } else {
-             analysisText += `Center: N/A<br>`; // Should always be present for a stone placement
-        }
-
-        // Distance to nearest friendly stone
-        if (report.distance_to_nearest_friendly_stone !== null && report.distance_to_nearest_friendly_stone !== undefined) {
-             analysisText += `Closest Friendly: ${report.distance_to_nearest_friendly_stone.toFixed(2)}<br>`;
-        } else {
-             analysisText += `Closest Friendly: N/A (no other friendly stones)<br>`;
-        }
-        
-        // Distance to nearest enemy stone
-        if (report.distance_to_nearest_enemy_stone !== null && report.distance_to_nearest_enemy_stone !== undefined) {
-             analysisText += `Closest Enemy: ${report.distance_to_nearest_enemy_stone.toFixed(2)}<br>`;
-        } else {
-             analysisText += `Closest Enemy: N/A (no enemy stones)<br>`;
-        }
-
-        // Distance from previous friendly stone
-        if (report.distance_from_previous_friendly_stone !== null && report.distance_from_previous_friendly_stone !== undefined) {
-             analysisText += `Previous Friendly Stone: ${report.distance_from_previous_friendly_stone.toFixed(2)}<br>`;
-        } else {
-             analysisText += `Previous Friendly Stone: N/A (no enemy stones)<br>`;
-        }
+    if (!report) { // Case for initial state (currentMoveIndex = -1)
+        analysisDiv.innerHTML = `<strong>Upload an SGF file to begin.</strong>`;
+        return;
     }
+
+    if (report.type === 'Pass') {
+        analysisText = `<strong>Move ${report.move_number} (${report.player}): Pass</strong>`;
+        analysisDiv.innerHTML = analysisText;
+        return;
+    }
+
+    // Main header for the move
+    analysisText += `<strong>Move ${report.move_number} (${report.player}): ${report.sgf_coords}</strong>`;
+
+    // --- Characteristics Section ---
+    analysisText += `<br><br><strong>Characteristics:</strong><ul>`;
+    let characteristicsFound = 0;
+
+    if (report.captured_count > 0) {
+        analysisText += `<li>💥 <strong>Capture:</strong> Took ${report.captured_count} stone(s).</li>`;
+        characteristicsFound++;
+    }
+    if (report.atari && report.atari.length > 0) {
+        analysisText += `<li>❗ <strong>Atari:</strong> Placed ${report.atari.length} group(s) in atari.</li>`;
+        characteristicsFound++;
+    }
+    if (report.atari_threats && report.atari_threats.length > 0) {
+        analysisText += `<li>⚠️ <strong>Atari Threat:</strong> Created a future threat on ${report.atari_threats.length} group(s).</li>`;
+        characteristicsFound++;
+    }
+    if (report.is_contact) {
+        analysisText += `<li>🤝 <strong>Contact Play:</strong> Stone placed adjacent to an enemy.</li>`;
+        characteristicsFound++;
+    }
+    if (report.ko_detected) {
+        analysisText += `<li>⚖️ <strong>Ko:</strong> A ko fight may be starting.</li>`;
+        characteristicsFound++;
+    }
+
+    if (characteristicsFound === 0) {
+        analysisText += `<li>⚪ <strong>Developing Move:</strong> A standard, non-confrontational play.</li>`;
+    }
+    analysisText += `</ul>`;
+
+
+    // --- Metrics Section ---
+    analysisText += `<strong>Metrics:</strong><ul>`;
+
+    // Distance from center
+    if (report.distance_from_center !== null) {
+         analysisText += `<li><strong>Center:</strong> ${report.distance_from_center.toFixed(2)}</li>`;
+    }
+    // Distance from previous friendly stone
+    if (report.distance_from_previous_friendly_stone !== null) {
+         analysisText += `<li><strong>From Previous Friendly:</strong> ${report.distance_from_previous_friendly_stone.toFixed(2)}</li>`;
+    } else {
+         analysisText += `<li><strong>From Previous Friendly:</strong> N/A (first move)</li>`;
+    }
+    // Distance to nearest friendly stone
+    if (report.distance_to_nearest_friendly_stone !== null) {
+         analysisText += `<li><strong>To Nearest Friendly:</strong> ${report.distance_to_nearest_friendly_stone.toFixed(2)}</li>`;
+    }
+    // Distance to nearest enemy stone
+    if (report.distance_to_nearest_enemy_stone !== null) {
+         analysisText += `<li><strong>To Nearest Enemy:</strong> ${report.distance_to_nearest_enemy_stone.toFixed(2)}</li>`;
+    } else {
+         analysisText += `<li><strong>To Nearest Enemy:</strong> N/A (no enemy stones)</li>`;
+    }
+
+    analysisText += `</ul>`;
     analysisDiv.innerHTML = analysisText;
 }
+
 
 function playNextMoveWithWGo() {
     if (currentMoveIndex < gameData.length - 1) {
@@ -126,7 +146,7 @@ function playNextMoveWithWGo() {
         playbackSpeed = playbackSpeed * gamma
         playbackIntervalId = setTimeout(playNextMoveWithWGo, playbackSpeed);
         // Assuming playMusicalCue is defined elsewhere and handles the report object
-        playMusicalCue(report); 
+        playMusicalCue(report);
     } else {
         stopPlayback(); // Reached end of moves, stop playback
         showStatus("Playback finished.", "info");
@@ -144,7 +164,7 @@ function goToPrevMove() {
     const report = gameData[currentMoveIndex]; // Will be undefined if currentMoveIndex is -1
     displayMoveAnalysis(report || null); // Display current move's analysis or a clear state
     // Assuming playMusicalCue handles null or a default object for beginning state
-    playMusicalCue(report || {type: 'ResetGame'}); 
+    playMusicalCue(report || {type: 'ResetGame'});
 }
 
 function goToNextMove() {
@@ -155,11 +175,11 @@ function goToNextMove() {
         displayMoveAnalysis(report);
         wgoPlayer.next(); // Navigate WGo.js board
         // Assuming playMusicalCue is defined elsewhere and handles the report object
-        playMusicalCue(report); 
+        playMusicalCue(report);
     } else {
         showStatus("At the end of the game.", "info");
         // Specific cue for reaching the end of the game
-        playMusicalCue({type: 'FinishedGame'}); 
+        playMusicalCue({type: 'FinishedGame'});
     }
 }
 
@@ -171,22 +191,22 @@ function stopPlayback() {
     setPlayPauseButton(false); // Update button text to 'Play'
     displayMoveAnalysis(null); // Clear analysis display or show initial message
     // Specific cue for resetting playback
-    playMusicalCue({type: 'ResetGame'}); 
+    playMusicalCue({type: 'ResetGame'});
 }
 
 function startPlayback() {
     // If at the end of the game, reset to start before playing again
     if (currentMoveIndex === gameData.length - 1) {
-        stopPlayback(); 
+        stopPlayback();
     }
     // If already playing (playbackIntervalId is not null), calling startPlayback will pause it
     if (playbackIntervalId) {
-        pausePlayback(); 
+        pausePlayback();
     } else {
         setPlayPauseButton(true); // Update button text to 'Pause'
         // If currentMoveIndex is -1, playNextMoveWithWGo will increment to 0 and play the first move.
         // If paused mid-game, it will resume from the currentMoveIndex.
-        playNextMoveWithWGo(); 
+        playNextMoveWithWGo();
     }
 }
 
