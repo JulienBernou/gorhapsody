@@ -1,11 +1,27 @@
 // app.js
-let goBoard; // WGo.js Board object (kept as it might be implicitly used or for future expansion)
-let gameData = []; // Stores analysis reports from backend
-let wgoPlayer; // WGo.js Player instance for SGF playback
-let currentMoveIndex = -1; // -1 means before the first move
+let goBoard;
+let gameData = [];
+let wgoPlayer;
+let currentMoveIndex = -1;
 let playbackIntervalId = null;
-let playbackSpeed = 250; // Milliseconds between moves
-const gamma = .999
+let playbackSpeed = 250;
+const gamma = .999;
+
+// --- NEW: Detailed, Controllable Music Configuration ---
+// This object now defines the *entire* musical behavior and will be manipulated by the UI.
+const musicControls = {
+    'Capture': { label: '💥 Capture', instrument: 'membraneSynth', note: 'C3', volume: -5, duration: '0.4s' },
+    'Atari': { label: '❗ Atari', instrument: 'gentleSynth', note: 'tension_chord', volume: -6, duration: '8n' },
+    'Atari Threat': { label: '⚠️ Atari Threat', instrument: 'gentleSynth', note: 'tension_dyad', volume: -8, duration: '16n' },
+    'Star Point': { label: '⭐ Star Point', instrument: 'marimbaSynth', note: 'C4', volume: -9, duration: '2n' },
+    '3-3 Point': { label: '🏡 3-3 Point', instrument: 'gentleSynth', note: 'C2', volume: -10, duration: '1n' },
+    '3-4 Point': { label: '🎯 3-4 Point', instrument: 'marimbaSynth', note: 'E4', volume: -10, duration: '2n' },
+    'First Corner Play': { label: '🚩 First Corner', instrument: 'gentleSynth', note: 'melodic', volume: -12, duration: '4n' },
+    'Corner Enclosure': { label: '🧱 Small Enclosure', instrument: 'marimbaSynth', note: 'stable_chord', volume: -11, duration: '4n' },
+    'Large Enclosure': { label: '🏰 Large Enclosure', instrument: 'marimbaSynth', note: 'resolving_dyad', volume: -10, duration: '8n' },
+    'Contact Move': { label: '🤝 Contact', instrument: 'gentleSynth', note: 'melodic_accent', volume: -5, duration: '8n' },
+    'Normal Move': { label: '⚪ Normal', instrument: 'dynamic', note: 'melodic', volume: -16, duration: '8n' },
+};
 
 // DOM elements
 const sgfUploadInput = document.getElementById('sgfUpload');
@@ -15,127 +31,147 @@ const nextBtn = document.getElementById('nextBtn');
 const resetBtn = document.getElementById('resetBtn');
 const statusMessageDiv = document.getElementById('status-message');
 const analysisDiv = document.getElementById('analysisDiv');
-
-
+const advancedControlsPanel = document.getElementById('advanced-controls-panel'); // NEW
 
 // --- Helper Functions ---
 function showStatus(message, type = 'info') {
     statusMessageDiv.textContent = message;
-    statusMessageDiv.className = type; // 'info', 'success', 'error'
+    statusMessageDiv.className = type;
 }
-
 function enableControls(enable = true) {
     playPauseBtn.disabled = !enable;
     prevBtn.disabled = !enable;
     nextBtn.disabled = !enable;
     resetBtn.disabled = !enable;
 }
-
 function setPlayPauseButton(isPlaying) {
     playPauseBtn.textContent = isPlaying ? 'Pause' : 'Play';
 }
 
-// --- Go Board Playback Logic ---
+// --- NEW: Advanced Control Panel Builder ---
+function setupAdvancedControls() {
+    advancedControlsPanel.innerHTML = ''; // Clear previous
+    for (const key in musicControls) {
+        const config = musicControls[key];
 
-function setupWGoPlayer(sgfString) {
-    // Clear any existing player instance
-    if (wgoPlayer) {
-        wgoPlayer.destroy();
+        const fieldset = document.createElement('fieldset');
+        const legend = document.createElement('legend');
+        legend.textContent = config.label;
+        fieldset.appendChild(legend);
+
+        // 1. Instrument Selector (Dropdown)
+        const instrLabel = document.createElement('label');
+        instrLabel.textContent = 'Instrument: ';
+        const instrSelect = document.createElement('select');
+        instrSelect.dataset.key = key;
+        instrSelect.dataset.param = 'instrument';
+        ['marimbaSynth', 'gentleSynth', 'membraneSynth', 'dynamic'].forEach(instr => {
+             // 'dynamic' is a special case for Normal Move
+            if (config.instrument !== 'dynamic' && instr === 'dynamic') return;
+            const option = document.createElement('option');
+            option.value = instr;
+            option.textContent = instr.replace('Synth', '');
+            if (config.instrument === instr) option.selected = true;
+            instrSelect.appendChild(option);
+        });
+        fieldset.appendChild(instrLabel);
+        fieldset.appendChild(instrSelect);
+
+        // 2. Volume Slider
+        const volLabel = document.createElement('label');
+        volLabel.textContent = 'Volume (dB): ';
+        const volSlider = document.createElement('input');
+        volSlider.type = 'range';
+        volSlider.min = -40;
+        volSlider.max = 0;
+        volSlider.step = 1;
+        volSlider.value = config.volume;
+        volSlider.dataset.key = key;
+        volSlider.dataset.param = 'volume';
+        const volValueSpan = document.createElement('span');
+        volValueSpan.textContent = config.volume;
+        fieldset.appendChild(volLabel);
+        fieldset.appendChild(volSlider);
+        fieldset.appendChild(volValueSpan);
+
+        // 3. Duration Input
+        const durLabel = document.createElement('label');
+        durLabel.textContent = 'Duration: ';
+        const durInput = document.createElement('input');
+        durInput.type = 'text';
+        durInput.value = config.duration;
+        durInput.dataset.key = key;
+        durInput.dataset.param = 'duration';
+        fieldset.appendChild(durLabel);
+        fieldset.appendChild(durInput);
+
+        // --- Event Listeners for controls ---
+        instrSelect.addEventListener('change', handleControlChange);
+        volSlider.addEventListener('input', (e) => { // 'input' for live update
+            handleControlChange(e);
+            volValueSpan.textContent = e.target.value; // Update value display
+        });
+        durInput.addEventListener('change', handleControlChange);
+
+        advancedControlsPanel.appendChild(fieldset);
     }
-
-    wgoPlayer = new WGo.BasicPlayer(document.getElementById('wgo-player-display'), {
-        sgf: sgfString,
-        enableMoving: false, // Prevent user from moving stones directly
-        enableWheel: false, // Prevent wheel scrolling
-        enableKeys: false, // Prevent keyboard navigation (we use our buttons)
-        showTools: false, // Hide built-in tools
-        layout: {
-            // Removed 'Control' from here as per request.
-            // Keeping 'InfoBox' and 'CommentBox' in case they are desired, otherwise can be removed.
-            left: ['InfoBox', 'CommentBox'], 
-        },
-    });
-    // We do NOT override WGo.Player's onNodeChanged.
-    // Our display and musical cue logic is handled by displayMoveAnalysis in our custom playback functions.
 }
 
+function handleControlChange(event) {
+    const { key, param } = event.target.dataset;
+    let value = event.target.value;
+
+    // Convert value if necessary (e.g., for volume slider)
+    if (param === 'volume') {
+        value = parseFloat(value);
+    }
+
+    if (musicControls[key]) {
+        musicControls[key][param] = value;
+        console.log(`Updated ${key}.${param} to:`, value);
+    }
+}
+
+
+// --- Go Board and Playback Logic ---
+function setupWGoPlayer(sgfString) {
+    if (wgoPlayer) wgoPlayer.destroy();
+    wgoPlayer = new WGo.BasicPlayer(document.getElementById('wgo-player-display'), {
+        sgf: sgfString, enableMoving: false, enableWheel: false, enableKeys: false, showTools: false,
+    });
+}
 
 function displayMoveAnalysis(report) {
-    let analysisText = ``;
+    if (!report) { analysisDiv.innerHTML = `<strong>Upload an SGF file to begin.</strong>`; return; }
+    if (report.type === 'Pass') { analysisDiv.innerHTML = `<strong>Move ${report.move_number} (${report.player}): Pass</strong>`; return; }
 
-    if (!report) { // Case for initial state (currentMoveIndex = -1)
-        analysisDiv.innerHTML = `<strong>Upload an SGF file to begin.</strong>`;
-        return;
+    let analysisText = `<strong>Move ${report.move_number} (${report.player}): ${report.sgf_coords}</strong>`;
+    analysisText += `<br><br><strong>Move Type:</strong><ul>`;
+    
+    let moveKey = report.type;
+    if (moveKey.includes('Enclosure') && moveKey !== 'Corner Enclosure') {
+        moveKey = 'Large Enclosure';
     }
+    
+    const label = musicControls[moveKey]?.label || '⚪ Developing Move';
+    const displayText = moveKey === 'Large Enclosure' ? `${label} (${report.type})` : label;
+    analysisText += `<li>${displayText}</li>`;
 
-    if (report.type === 'Pass') {
-        analysisText = `<strong>Move ${report.move_number} (${report.player}): Pass</strong>`;
-        analysisDiv.innerHTML = analysisText;
-        return;
-    }
-
-    // Main header for the move
-    analysisText += `<strong>Move ${report.move_number} (${report.player}): ${report.sgf_coords}</strong>`;
-
-    // --- Characteristics Section ---
-    analysisText += `<br><br><strong>Characteristics:</strong><ul>`;
-    let characteristicsFound = 0;
-
-    if (report.captured_count > 0) {
-        analysisText += `<li>💥 <strong>Capture:</strong> Took ${report.captured_count} stone(s).</li>`;
-        characteristicsFound++;
-    }
-    if (report.atari && report.atari.length > 0) {
-        analysisText += `<li>❗ <strong>Atari:</strong> Placed ${report.atari.length} group(s) in atari.</li>`;
-        characteristicsFound++;
-    }
-    if (report.atari_threats && report.atari_threats.length > 0) {
-        analysisText += `<li>⚠️ <strong>Atari Threat:</strong> Created a future threat on ${report.atari_threats.length} group(s).</li>`;
-        characteristicsFound++;
-    }
-    if (report.is_contact) {
-        analysisText += `<li>🤝 <strong>Contact Play:</strong> Stone placed adjacent to an enemy.</li>`;
-        characteristicsFound++;
-    }
-    if (report.ko_detected) {
-        analysisText += `<li>⚖️ <strong>Ko:</strong> A ko fight may be starting.</li>`;
-        characteristicsFound++;
-    }
-
-    if (characteristicsFound === 0) {
-        analysisText += `<li>⚪ <strong>Developing Move:</strong> A standard, non-confrontational play.</li>`;
-    }
+    if (report.ko_detected) analysisText += `<li>⚖️ <strong>Ko:</strong> A ko fight may be starting.</li>`;
     analysisText += `</ul>`;
-
-
-    // --- Metrics Section ---
+    
+    // Metrics section remains the same...
     analysisText += `<strong>Metrics:</strong><ul>`;
-
-    // Distance from center
-    if (report.distance_from_center !== null) {
-         analysisText += `<li><strong>Center:</strong> ${report.distance_from_center.toFixed(2)}</li>`;
-    }
-    // Distance from previous friendly stone
-    if (report.distance_from_previous_friendly_stone !== null) {
-         analysisText += `<li><strong>From Previous Friendly:</strong> ${report.distance_from_previous_friendly_stone.toFixed(2)}</li>`;
-    } else {
-         analysisText += `<li><strong>From Previous Friendly:</strong> N/A (first move)</li>`;
-    }
-    // Distance to nearest friendly stone
-    if (report.distance_to_nearest_friendly_stone !== null) {
-         analysisText += `<li><strong>To Nearest Friendly:</strong> ${report.distance_to_nearest_friendly_stone.toFixed(2)}</li>`;
-    }
-    // Distance to nearest enemy stone
-    if (report.distance_to_nearest_enemy_stone !== null) {
-         analysisText += `<li><strong>To Nearest Enemy:</strong> ${report.distance_to_nearest_enemy_stone.toFixed(2)}</li>`;
-    } else {
-         analysisText += `<li><strong>To Nearest Enemy:</strong> N/A (no enemy stones)</li>`;
-    }
-
+    if (report.distance_from_center !== null) analysisText += `<li><strong>Center:</strong> ${report.distance_from_center.toFixed(2)}</li>`;
+    if (report.distance_from_previous_friendly_stone !== null) analysisText += `<li><strong>From Previous Friendly:</strong> ${report.distance_from_previous_friendly_stone.toFixed(2)}</li>`;
+    else analysisText += `<li><strong>From Previous Friendly:</strong> N/A (first move)</li>`;
+    if (report.distance_to_nearest_friendly_stone !== null) analysisText += `<li><strong>To Nearest Friendly:</strong> ${report.distance_to_nearest_friendly_stone.toFixed(2)}</li>`;
+    if (report.distance_to_nearest_enemy_stone !== null) analysisText += `<li><strong>To Nearest Enemy:</strong> ${report.distance_to_nearest_enemy_stone.toFixed(2)}</li>`;
+    else analysisText += `<li><strong>To Nearest Enemy:</strong> N/A (no enemy stones)</li>`;
     analysisText += `</ul>`;
+
     analysisDiv.innerHTML = analysisText;
 }
-
 
 function playNextMoveWithWGo() {
     if (currentMoveIndex < gameData.length - 1) {
@@ -143,140 +179,103 @@ function playNextMoveWithWGo() {
         const report = gameData[currentMoveIndex];
         displayMoveAnalysis(report);
         wgoPlayer.next();
-        playbackSpeed = playbackSpeed * gamma
+        playbackSpeed = playbackSpeed * gamma;
         playbackIntervalId = setTimeout(playNextMoveWithWGo, playbackSpeed);
-        // Assuming playMusicalCue is defined elsewhere and handles the report object
-        playMusicalCue(report);
+        // Pass the entire controls object to the music engine
+        playMusicalCue(report, musicControls);
     } else {
-        stopPlayback(); // Reached end of moves, stop playback
+        stopPlayback();
         showStatus("Playback finished.", "info");
     }
 }
 
 function goToPrevMove() {
-    pausePlayback(); // Always pause when manually navigating
-    if (currentMoveIndex > -1) { // Check if we are not already before the first move
-        wgoPlayer.previous(); // Navigate WGo.js board
+    pausePlayback();
+    if (currentMoveIndex > -1) {
+        wgoPlayer.previous();
         currentMoveIndex--;
-    } else {
-        showStatus("At the beginning of the game.", "info");
     }
-    const report = gameData[currentMoveIndex]; // Will be undefined if currentMoveIndex is -1
-    displayMoveAnalysis(report || null); // Display current move's analysis or a clear state
-    // Assuming playMusicalCue handles null or a default object for beginning state
-    playMusicalCue(report || {type: 'ResetGame'});
+    const report = gameData[currentMoveIndex];
+    displayMoveAnalysis(report || null);
+    playMusicalCue(report || {type: 'ResetGame'}, musicControls);
 }
 
 function goToNextMove() {
-    pausePlayback(); // Always pause when manually navigating
+    pausePlayback();
     if (currentMoveIndex < gameData.length - 1) {
         currentMoveIndex++;
         const report = gameData[currentMoveIndex];
         displayMoveAnalysis(report);
-        wgoPlayer.next(); // Navigate WGo.js board
-        // Assuming playMusicalCue is defined elsewhere and handles the report object
-        playMusicalCue(report);
+        wgoPlayer.next();
+        playMusicalCue(report, musicControls);
     } else {
         showStatus("At the end of the game.", "info");
-        // Specific cue for reaching the end of the game
-        playMusicalCue({type: 'FinishedGame'});
+        playMusicalCue({type: 'FinishedGame'}, musicControls);
     }
 }
 
 function stopPlayback() {
-    pausePlayback(); // Clear any ongoing playback
-    currentMoveIndex = -1; // Reset index to before the first move
-    playbackSpeed = 250
-    wgoPlayer.first(); // Reset WGo.js board to initial state
-    setPlayPauseButton(false); // Update button text to 'Play'
-    displayMoveAnalysis(null); // Clear analysis display or show initial message
-    // Specific cue for resetting playback
-    playMusicalCue({type: 'ResetGame'});
+    pausePlayback();
+    currentMoveIndex = -1;
+    playbackSpeed = 250;
+    wgoPlayer.first();
+    setPlayPauseButton(false);
+    displayMoveAnalysis(null);
+    playMusicalCue({type: 'ResetGame'}, musicControls);
 }
 
 function startPlayback() {
-    // If at the end of the game, reset to start before playing again
-    if (currentMoveIndex === gameData.length - 1) {
-        stopPlayback();
-    }
-    // If already playing (playbackIntervalId is not null), calling startPlayback will pause it
-    if (playbackIntervalId) {
-        pausePlayback();
-    } else {
-        setPlayPauseButton(true); // Update button text to 'Pause'
-        // If currentMoveIndex is -1, playNextMoveWithWGo will increment to 0 and play the first move.
-        // If paused mid-game, it will resume from the currentMoveIndex.
+    if (currentMoveIndex === gameData.length - 1) stopPlayback();
+    if (playbackIntervalId) pausePlayback();
+    else {
+        setPlayPauseButton(true);
         playNextMoveWithWGo();
     }
 }
 
-
 function pausePlayback() {
     clearTimeout(playbackIntervalId);
     playbackIntervalId = null;
-    setPlayPauseButton(false); // Update button text to 'Play'
+    setPlayPauseButton(false);
 }
 
-// --- Event Listeners ---
+// --- Event Listeners & Initialization ---
 sgfUploadInput.addEventListener('change', async (event) => {
     const file = event.target.files[0];
-    if (!file) {
-        showStatus("No file selected.", "error");
-        return;
-    }
-
-    enableControls(false); // Disable controls during file processing
-
+    if (!file) return;
+    enableControls(false);
     const formData = new FormData();
     formData.append('sgf_file', file);
-
     try {
-        const response = await fetch('/upload_sgf', {
-            method: 'POST',
-            body: formData
-        });
-
+        const response = await fetch('/upload_sgf', { method: 'POST', body: formData });
         const result = await response.json();
-
         if (response.ok) {
-            const gameId = result.game_id;
-
-            const analysisResponse = await fetch(`/analysis/${gameId}`);
+            const analysisResponse = await fetch(`/analysis/${result.game_id}`);
             const analysisResult = await analysisResponse.json();
-
             if (analysisResponse.ok) {
-                gameData = analysisResult; // Store the analysis data
-                console.log("Analysis Log Loaded:", gameData);
-
+                gameData = analysisResult;
                 const reader = new FileReader();
-                reader.onload = function(e) {
-                    setupWGoPlayer(e.target.result); // Initialize WGo.js player
-                    enableControls(true); // Enable controls after successful load
-                    currentMoveIndex = -1; // Reset playback index
-                    wgoPlayer.first(); // Set WGo.js board to initial state
-                    setPlayPauseButton(false); // Set play/pause button to 'Play'
-                    displayMoveAnalysis(null); // Clear/reset analysis display
+                reader.onload = (e) => {
+                    setupWGoPlayer(e.target.result);
+                    enableControls(true);
+                    stopPlayback(); // Reset to initial state
                 };
-                reader.readAsText(file); // Read the SGF file content
+                reader.readAsText(file);
             } else {
-                showStatus(`Failed to fetch analysis log: ${analysisResult.error}`, "error");
-                enableControls(false);
+                showStatus(`Analysis Failed: ${analysisResult.error}`, "error");
             }
         } else {
-            showStatus(`SGF Upload Failed: ${result.error}`, "error");
-            enableControls(false);
+            showStatus(`Upload Failed: ${result.error}`, "error");
         }
     } catch (error) {
-        showStatus(`Network or other error: ${error.message}`, "error");
-        console.error("Error:", error);
-        enableControls(false);
+        showStatus(`Network Error: ${error.message}`, "error");
     }
 });
 
-// Event listeners for playback controls
-playPauseBtn.addEventListener('click', () => {
-    startPlayback(); // Toggle play/pause
-});
+playPauseBtn.addEventListener('click', startPlayback);
 prevBtn.addEventListener('click', goToPrevMove);
 nextBtn.addEventListener('click', goToNextMove);
 resetBtn.addEventListener('click', stopPlayback);
+
+// Build the control panel when the page loads
+document.addEventListener('DOMContentLoaded', setupAdvancedControls);
