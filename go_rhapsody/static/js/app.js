@@ -142,7 +142,6 @@ function setupWGoPlayer(sgfString) {
 }
 
 function displayMoveAnalysis(report) {
-    if (!report) { analysisDiv.innerHTML = `<strong>Upload an SGF file to begin.</strong>`; return; }
     if (report.type === 'Pass') { analysisDiv.innerHTML = `<strong>Move ${report.move_number} (${report.player}): Pass</strong>`; return; }
 
     let analysisText = `<strong>Move ${report.move_number} (${report.player}): ${report.sgf_coords}</strong>`;
