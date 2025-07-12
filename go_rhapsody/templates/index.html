@@ -7,44 +7,149 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link type="text/css" href="{{ url_for('static', filename='css/wgo.player.css') }}" rel="stylesheet" />
     <style>
+        /* --- General Layout --- */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f0f0;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+        }
+
+        #page-wrapper {
+            display: flex;
+            gap: 30px; /* Space between left panel and main content */
+            justify-content: center;
+        }
+
+        #left-panel {
+            flex: 0 0 280px; /* Fixed width for the left panel */
+            display: flex;
+            flex-direction: column;
+        }
+        
+        #main-panel {
+            flex-grow: 1; /* Main panel takes remaining space */
+            max-width: 550px; /* Limit width of the central column */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h2 {
+            color: #2c3e50;
+            margin-top: 0;
+            text-align: center;
+        }
+
+        /* --- SGF Uploader (Smaller & Repositioned) --- */
+        #sgf-upload-section {
+            background-color: #fff;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            margin-bottom: 20px;
+        }
+
+        #sgf-upload-section label {
+            display: block;
+            font-weight: bold;
+            font-size: 0.9em;
+            margin-bottom: 8px;
+            color: #333;
+        }
+        
+        #sgf-upload-section input[type="file"] {
+            font-size: 0.85em;
+            /* Simple way to style file input across browsers */
+            max-width: 100%;
+        }
+
+        /* --- Main Content Styling --- */
+        #goban-container {
+            width: 500px;
+            height: 500px;
+            border: 1px solid #ccc;
+            box-shadow: inset 0 0 5px rgba(0,0,0,0.1);
+            background-color: #fff;
+        }
+
+        #controls {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+        }
+
+        button {
+            padding: 10px 18px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: background-color 0.2s ease;
+            background-color: #007bff;
+            color: white;
+        }
+
+        button:hover:enabled {
+            background-color: #0056b3;
+        }
+
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+
+        #status-message {
+            margin-top: 15px;
+            font-weight: bold;
+            color: #555;
+            min-height: 20px;
+        }
+        .error { color: #dc3545; }
+        .success { color: #28a745; }
+
     </style>
 </head>
 <body>
-    <!-- <h1>Tango</h1> -->
 
-    <div class="container">
-        <div id="sgf-upload-section">
-            <label for="sgfUpload">Upload SGF:</label>
-            <input type="file" id="sgfUpload" accept=".sgf">
-            <button id="startButton" disabled>Load & Start Playback</button>
-        </div>
-        <div id="status-message"></div>
-    </div>
-
-    <div id="goban-container">
-        <div id="wgo-player-display"></div>
-    </div>
-
-    <div id="controls">
-        <button id="prevBtn" disabled>&laquo; Prev</button>
-        <button id="playPauseBtn" disabled>Play</button>
-        <button id="nextBtn" disabled>Next &raquo;</button>
-        <button id="resetBtn" disabled>Reset</button>
-    </div>
-
-    <div id="analysisDiv"></div>
-
-    <div id="advanced-controls-container">
-        <h2>Ableton GO</h2>
-        <div id="advanced-controls-panel">
+    <div id="page-wrapper">
+        
+        <div id="left-panel">
+            <div id="sgf-upload-section">
+                <label for="sgfUpload">Upload SGF File:</label>
+                <input type="file" id="sgfUpload" accept=".sgf">
             </div>
+
+            <div id="advanced-controls-container">
+                <h2>Ableton GO</h2>
+                <div id="advanced-controls-panel">
+                    </div>
+            </div>
+        </div>
+
+        <div id="main-panel">
+            <div id="goban-container">
+                <div id="wgo-player-display"></div>
+            </div>
+
+            <div id="controls">
+                <button id="prevBtn" disabled>&laquo; Prev</button>
+                <button id="playPauseBtn" disabled>Play</button>
+                <button id="nextBtn" disabled>Next &raquo;</button>
+                <button id="resetBtn" disabled>Reset</button>
+            </div>
+            
+            <div id="status-message"></div>
+
+            <div id="analysisDiv"></div>
+        </div>
+
     </div>
 
     <script src="{{ url_for('static', filename='js/wgo.min.js') }}"></script>
     <script src="{{ url_for('static', filename='js/wgo.player.min.js') }}"></script>
-    
     <script src="https://unpkg.com/tone"></script>
-
     <script src="{{ url_for('static', filename='js/music_engine.js') }}"></script>
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
