@@ -31,24 +31,27 @@
             color: var(--text-color);
             margin: 0;
             padding: 20px;
-            padding-left: 260px; /* Adjusted for new panel width */
         }
 
-        /* --- General Layout --- */
-        #left-panel {
-            position: fixed;
-            left: 20px;
-            top: 20px;
-            width: 220px; /* Further reduced width */
-            height: calc(100vh - 40px);
+        /* --- General Layout (UPDATED for 3 columns) --- */
+        #page-wrapper {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 30px;
+            justify-content: center; /* Center the whole layout */
+            max-width: 1400px; /* Increased max-width for 3 columns */
+            margin: 0 auto;
+        }
+
+        #left-panel, #right-panel {
+            flex: 0 0 300px; /* Give left and right panels a fixed width */
             display: flex;
             flex-direction: column;
-            gap: 15px; /* Reduced gap */
-            overflow-y: auto;
+            gap: 20px;
         }
         
         #main-panel {
-            margin: 0 auto;
+            flex-grow: 1;
             max-width: 520px;
             display: flex;
             flex-direction: column;
@@ -58,8 +61,8 @@
         h2, h3 {
             color: var(--accent-color);
             margin-top: 0;
-            margin-bottom: 12px;
-            font-size: 1.2em; /* Smaller titles */
+            margin-bottom: 15px;
+            font-size: 1.3em;
             font-weight: 600;
             text-shadow: 0 0 8px var(--accent-glow);
         }
@@ -67,28 +70,28 @@
         /* --- UI Panels --- */
         .panel {
             background-color: var(--panel-bg-color);
-            padding: 12px; /* Tighter padding */
-            border-radius: 8px;
+            padding: 20px;
+            border-radius: 12px;
             border: 1px solid var(--border-color);
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.2);
         }
 
-        /* --- SGF Uploader --- */
-        #sgf-upload-section label {
+        /* --- SGF Uploader & Controls --- */
+        #sgf-upload-section label, #advanced-controls-panel legend {
             font-weight: 600;
-            font-size: 0.85em; /* Smaller */
+            font-size: 0.9em;
             margin-bottom: 8px;
         }
         
         #sgf-upload-section input[type="file"] {
             width: 100%;
-            font-size: 0.75em; /* Smaller */
+            font-size: 0.8em;
         }
         input[type="file"]::file-selector-button {
             background-color: var(--accent-color);
             color: #000;
             border: none;
-            padding: 5px 8px; /* Smaller */
+            padding: 6px 10px;
             border-radius: 4px;
             cursor: pointer;
             transition: background-color 0.2s ease;
@@ -142,93 +145,94 @@
         .error { color: var(--error-color); }
         .success { color: var(--success-color); }
 
-        /* --- Advanced Controls Panel (Compact Redesign) --- */
-        #advanced-controls-container h2 {
-            text-align: left;
-        }
-
+        /* --- Advanced Controls Panel --- */
+        #advanced-controls-container h2 { text-align: left; }
         #advanced-controls-panel fieldset {
             border: 1px solid var(--border-color);
             border-radius: 6px;
-            padding: 10px;
-            margin-bottom: 8px;
-            display: grid; /* Use grid for alignment */
-            grid-template-columns: auto 1fr auto; /* Label | Control | Value */
-            align-items: center;
-            gap: 4px 8px; /* row-gap | column-gap */
+            padding: 10px; margin-bottom: 8px;
         }
-        #advanced-controls-panel legend {
-            color: var(--accent-color);
-            font-weight: 600;
-            font-size: 0.85em; /* Smaller */
-            padding: 0 5px;
-        }
-        #advanced-controls-panel label {
-            font-size: 0.8em; /* Smaller */
-            color: var(--text-muted-color);
-            grid-column: 1 / 2; /* All labels in the first column */
-        }
+        #advanced-controls-panel legend { color: var(--accent-color); font-weight: 600; font-size: 0.9em; padding: 0 5px; }
+        #advanced-controls-panel label { font-size: 0.85em; color: var(--text-muted-color); }
         #advanced-controls-panel input, #advanced-controls-panel select {
-            background-color: #333;
-            color: var(--text-color);
-            border: 1px solid #555;
-            border-radius: 4px;
-            padding: 4px;
-            font-size: 0.8em; /* Smaller */
-            grid-column: 2 / 4; /* Controls span the 2nd and 3rd columns */
-            width: 100%;
-            box-sizing: border-box;
+            background-color: #333; color: var(--text-color); border: 1px solid #555;
+            border-radius: 4px; padding: 4px; font-size: 0.85em; width: 100%; box-sizing: border-box;
         }
-        #advanced-controls-panel input[type="range"] {
-            grid-column: 2 / 3; /* Slider only in the 2nd column */
+
+        /* --- Analysis Panel (NEW) --- */
+        #analysis-panel {
+            height: fit-content; /* So it doesn't stretch to full height */
         }
-         #advanced-controls-panel span {
-            grid-column: 3 / 4; /* Value display in the 3rd column */
-            font-size: 0.8em;
-            text-align: right;
-            min-width: 25px;
+        #analysisDiv {
+            font-size: 0.9em;
+            line-height: 1.6;
         }
+        #analysisDiv strong {
+            color: var(--accent-color);
+        }
+        #analysisDiv ul {
+            padding-left: 20px;
+            margin-top: 5px;
+        }
+        #analysisDiv li {
+            margin-bottom: 5px;
+        }
+
     </style>
 </head>
 <body>
-    
-    <!-- === LEFT PANEL === -->
-    <div id="left-panel">
+
+    <div id="page-wrapper">
         
-        <div id="sgf-upload-section" class="panel">
-            <label for="sgfUpload"></label>
-            <input type="file" id="sgfUpload" accept=".sgf">
+        <!-- === LEFT PANEL === -->
+        <div id="left-panel">
+            
+            <div id="sgf-upload-section" class="panel">
+                <label for="sgfUpload">Upload SGF File</label>
+                <input type="file" id="sgfUpload" accept=".sgf">
+            </div>
+
+            <div id="advanced-controls-container" class="panel">
+                <h2>Sound Control Panel</h2>
+                <div id="advanced-controls-panel">
+                    <!-- This will be populated by app.js -->
+                </div>
+            </div>
+
         </div>
 
-        <div id="advanced-controls-container" class="panel">
-            <h2>Sound Control Panel</h2>
-            <div id="advanced-controls-panel">
-                <!-- This will be populated by app.js -->
+        <!-- === MAIN PANEL === -->
+        <div id="main-panel">
+
+            <div id="game-info-panel" class="panel">
+                <!-- Player info will be populated here -->
+            </div>
+
+            <div id="goban-container">
+                <div id="wgo-player-display"></div>
+            </div>
+
+            <div id="controls">
+                <button id="prevBtn" disabled>&laquo; Prev</button>
+                <button id="playPauseBtn" disabled>Play</button>
+                <button id="nextBtn" disabled>Next &raquo;</button>
+                <button id="resetBtn" disabled>Reset</button>
+            </div>
+            
+            <div id="status-message"></div>
+        </div>
+
+        <!-- === RIGHT PANEL (for Analysis) === -->
+        <div id="right-panel">
+            <div id="analysis-panel" class="panel">
+                <h3>Move Analysis</h3>
+                <div id="analysisDiv">
+                    Upload an SGF file to begin.
+                </div>
             </div>
         </div>
 
     </div>
-
-    <!-- === MAIN PANEL === -->
-    <div id="main-panel">
-
-        <div id="goban-container">
-            <div id="wgo-player-display"></div>
-        </div>
-
-        <div id="controls">
-            <button id="prevBtn" disabled>&laquo; Prev</button>
-            <button id="playPauseBtn" disabled>Play</button>
-            <button id="nextBtn" disabled>Next &raquo;</button>
-            <button id="resetBtn" disabled>Reset</button>
-        </div>
-        
-        <div id="status-message"></div>
-
-        <div id="analysisDiv"></div>
-
-    </div>
-
 
     <!-- JavaScript files -->
     <script src="{{ url_for('static', filename='js/wgo.min.js') }}"></script>
