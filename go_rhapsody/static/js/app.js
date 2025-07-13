@@ -138,6 +138,7 @@ function setupWGoPlayer(sgfString) {
     if (wgoPlayer) wgoPlayer.destroy();
     wgoPlayer = new WGo.BasicPlayer(document.getElementById('wgo-player-display'), {
         sgf: sgfString, enableMoving: false, enableWheel: false, enableKeys: false, showTools: false,
+        layout: {}
     });
 }
 
