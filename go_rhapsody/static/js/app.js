@@ -31,6 +31,7 @@ const nextBtn = document.getElementById('nextBtn');
 const resetBtn = document.getElementById('resetBtn');
 const statusMessageDiv = document.getElementById('status-message');
 const analysisDiv = document.getElementById('analysisDiv');
+const analysisDetailsDiv = document.getElementById('analysis-details');
 const advancedControlsPanel = document.getElementById('advanced-controls-panel'); // NEW
 
 // --- Helper Functions ---
@@ -143,7 +144,17 @@ function setupWGoPlayer(sgfString) {
 }
 
 function displayMoveAnalysis(report) {
-    if (report.type === 'Pass') { analysisDiv.innerHTML = `<strong>Move ${report.move_number} (${report.player}): Pass</strong>`; return; }
+    if (!report) {
+        analysisDiv.innerHTML = 'Upload an SGF file to begin.';
+        analysisDetailsDiv.innerHTML = '';
+        return;
+    }
+
+    if (report.type === 'Pass') { 
+        analysisDiv.innerHTML = `<strong>Move ${report.move_number} (${report.player}): Pass</strong>`;
+        analysisDetailsDiv.innerHTML = '';
+        return;
+    }
 
     let analysisText = `<strong>Move ${report.move_number} (${report.player}): ${report.sgf_coords}</strong>`;
     analysisText += `<br><br><strong>Move Type:</strong><ul>`;
@@ -160,7 +171,7 @@ function displayMoveAnalysis(report) {
     if (report.ko_detected) analysisText += `<li>⚖️ <strong>Ko:</strong> A ko fight may be starting.</li>`;
     analysisText += `</ul>`;
     
-    // Metrics section remains the same...
+    // Metrics section
     analysisText += `<strong>Metrics:</strong><ul>`;
     if (report.distance_from_center !== null) analysisText += `<li><strong>Center:</strong> ${report.distance_from_center.toFixed(2)}</li>`;
     if (report.distance_from_previous_friendly_stone !== null) analysisText += `<li><strong>From Previous Friendly:</strong> ${report.distance_from_previous_friendly_stone.toFixed(2)}</li>`;
@@ -171,6 +182,23 @@ function displayMoveAnalysis(report) {
     analysisText += `</ul>`;
 
     analysisDiv.innerHTML = analysisText;
+
+    // Detailed analysis
+    let detailsText = '<strong>Detected Patterns:</strong><ul>';
+    if (report.atari && report.atari.length > 0) detailsText += `<li>Atari on ${report.atari.length} group(s)</li>`;
+    if (report.atari_threats && report.atari_threats.length > 0) detailsText += `<li>Atari threat on ${report.atari_threats.length} group(s)</li>`;
+    if (report.captures && report.captures.length > 0) detailsText += `<li>Captured ${report.captured_count} stone(s)</li>`;
+    if (report.is_cut) detailsText += `<li>Is a cutting move</li>`;
+    if (report.is_contact) detailsText += `<li>Is a contact move</li>`;
+    if (report.large_enclosure_type) detailsText += `<li>Forms a large enclosure: ${report.large_enclosure_type}</li>`;
+    if (report.type === 'Star Point') detailsText += `<li>Played on a star point</li>`;
+    if (report.type === '3-3 Point') detailsText += `<li>Played on a 3-3 point</li>`;
+    if (report.type === '3-4 Point') detailsText += `<li>Played on a 3-4 point</li>`;
+    if (report.type === 'Corner Enclosure') detailsText += `<li>Makes a corner enclosure</li>`;
+    if (report.ko_detected) detailsText += `<li>A ko is detected</li>`;
+
+    detailsText += '</ul>';
+    analysisDetailsDiv.innerHTML = detailsText;
 }
 
 function playNextMoveWithWGo() {
@@ -191,7 +219,7 @@ function playNextMoveWithWGo() {
 
 function goToPrevMove() {
     pausePlayback();
-    if (currentMoveIndex > -1) {
+    if (currentMoveIndex > 0) {
         wgoPlayer.previous();
         currentMoveIndex--;
     }
