@@ -218,6 +218,14 @@ class GameAnalyzer:
                 details['large_enclosure_type'] = large_enclosure_type
                 return large_enclosure_type, details
             return 'Corner Enclosure', details
+        
+        # Priority 3: Shape formations
+        if report.get('is_small_night'): return 'Small Knight', {}
+        if report.get('is_one_space_jump'): return 'One-Space Jump', {}
+        if report.get('is_two_space_jump'): return 'Two-Space Jump', {}
+
+        # Priority 4: General territorial plays
+        if report.get('is_corner_play'): return 'Corner Play', {}
 
         # Default fallback
         return 'Normal Move', details
