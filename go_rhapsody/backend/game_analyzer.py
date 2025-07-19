@@ -51,6 +51,10 @@ class GameAnalyzer:
             report['is_contact'] = self.is_contact_move(x, y, player, board_before_move)
             report['is_cut'] = self.is_cut_move(x, y, player, board_before_move)
             report['is_connection'] = self.is_connection_move(x, y, player, board_before_move)
+            report['is_corner_play'] = self.is_corner_play(x, y)
+            report['is_small_night'] = self.is_small_night(x, y, player)
+            report['is_one_space_jump'] = self.is_one_space_jump(x, y, player)
+            report['is_two_space_jump'] = self.is_two_space_jump(x, y, player)
 
             # --- Metrics ---
             center_coord = (self.board_size - 1) / 2
@@ -209,24 +213,68 @@ class GameAnalyzer:
         enclosure_type = self.is_corner_enclosure(x, y, player)
         if enclosure_type:
             details['enclosure_type'] = enclosure_type
+            large_enclosure_type = self.is_large_enclosure(x, y, player)
+            if large_enclosure_type:
+                details['large_enclosure_type'] = large_enclosure_type
+                return large_enclosure_type, details
             return 'Corner Enclosure', details
-            
-        large_enclosure_type = self.is_large_enclosure(x, y, player)
-        if large_enclosure_type:
-            details['large_enclosure_type'] = large_enclosure_type
-            return large_enclosure_type, details
 
         # Default fallback
         return 'Normal Move', details
 
-    def is_corner_enclosure(self, x, y, player):
+    def is_small_night(self, x, y, player):
         if self.board_size != 19: return None
-        # Simplified logic
         dist, _ = self.distance_to_nearest_stones(x, y, player)
         if dist and dist < 2.5:
             return "Small Knight"
         return None
+    
+    def is_one_space_jump(self, x, y, player):
+        if self.board_size != 19: return None
+        dist, _ = self.distance_to_nearest_stones(x, y, player)
+        if dist and dist == 2.0:
+            return "One space jump"
+        return None
+    
+    def is_two_space_jump(self, x, y, player):
+        if self.board_size != 19: return None
+        dist, _ = self.distance_to_nearest_stones(x, y, player)
+        if dist and dist == 3.0:
+            return "Two space jump"
+        return None
+    
+    def is_corner_enclosure(self, x, y, player):
+        if self.board_size != 19: return None
+        # Simplified logic
+        if self.is_corner_play(x, y):
+            dist, _ = self.distance_to_nearest_stones(x, y, player)
+            if dist and dist < 2.5:
+                return "Small Knight"
+            return None
+        return None
 
+    def is_corner_play(self, x, y):
+        """
+        Checks if a move is within a 4x4 area (lines 0-3) in any corner.
+        """
+        size = self.board_size
+        corner_boundary = 4 # Defines a 4x4 area (0, 1, 2, 3)
+
+        # Top-left
+        if (0 <= x <= corner_boundary) and (0 <= y <= corner_boundary):
+            return True
+        # Top-right
+        if (size - 1 - corner_boundary <= x < size) and (0 <= y <= corner_boundary):
+            return True
+        # Bottom-left
+        if (0 <= x <= corner_boundary) and (size - 1 - corner_boundary <= y < size):
+            return True
+        # Bottom-right
+        if (size - 1 - corner_boundary <= x < size) and (size - 1 - corner_boundary <= y < size):
+            return True
+            
+        return False
+    
     def is_large_enclosure(self, x, y, player):
         dist, _ = self.distance_to_nearest_stones(x, y, player)
         if dist and dist == 3.0:
