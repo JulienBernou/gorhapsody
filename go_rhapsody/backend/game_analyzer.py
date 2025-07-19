@@ -14,35 +14,35 @@ class GameAnalyzer:
 
     def analyze(self):
         previous_friendly_stones = {'B': None, 'W': None}
-        player_map = {'B': 1, 'W': 2} # Map player strings to integers
+        player_map = {'B': 1, 'W': 2}
 
         for i, move in enumerate(self.sgf_data):
             player_str, x, y = move['player'], move['x'], move['y']
-            
-            # --- FIX: Convert player string to integer ---
             player = player_map[player_str]
 
             report = {
                 'move_number': i + 1,
-                'player': player_str, # Keep original string for report
+                'player': player_str,
                 'sgf_coords': move.get('sgf_coords', 'pass'),
-                'coords': (x,y)
+                'coords': (x, y)
             }
-            
+
             if x is None or y is None:
                 report['type'] = 'Pass'
                 self.moves_analysis.append(report)
                 continue
 
             # --- Analysis ---
+            # 1. Store the board state *before* the move.
             board_before_move = [row[:] for row in self.board.get_board_state()]
 
-            # Play the move (now with an integer player)
+            # 2. Play the move to update the main board to the "after" state.
             captured_stones = self.board.play_move(x, y, player)
             report['captured_count'] = len(captured_stones)
             report['captures'] = captured_stones
             
-            current_group, liberties, _ = self.board.get_group(x,y)
+            # 3. Now that the board is in the "after" state, run all checks.
+            current_group, liberties, _ = self.board.get_group(x, y)
             report['liberties'] = len(liberties)
 
             report['atari'] = self.is_atari(x, y, player)
@@ -50,6 +50,7 @@ class GameAnalyzer:
             report['ko_detected'] = self.detect_ko(x, y, player)
             report['is_contact'] = self.is_contact_move(x, y, player, board_before_move)
             report['is_cut'] = self.is_cut_move(x, y, player, board_before_move)
+            report['is_connection'] = self.is_connection_move(x, y, player, board_before_move)
 
             # --- Metrics ---
             center_coord = (self.board_size - 1) / 2
@@ -80,45 +81,87 @@ class GameAnalyzer:
         opponent = 3 - player
         atari_groups = []
         for nx, ny in self.board.get_neighbors(x,y):
+            # Check the "after" board state for opponent groups in atari.
             if self.board.board[ny][nx] == opponent:
                 _, liberties, _ = self.board.get_group(nx, ny)
                 if len(liberties) == 1:
-                    atari_groups.append(((nx,ny)))
+                    atari_groups.append(((nx, ny)))
         return atari_groups
         
-    def is_contact_move(self, x, y, player, board_state):
+    def is_contact_move(self, x, y, player, board_state_before):
         opponent = 3 - player
         for nx, ny in self.board.get_neighbors(x, y):
-            if board_state[ny][nx] == opponent:
+            # Check if the placed stone is next to an opponent stone from the "before" state.
+            if board_state_before[ny][nx] == opponent:
                 return True
         return False
 
     def is_cut_move(self, x, y, player, board_before_move):
-        opponent = 3 - player
-        
-        neighboring_enemy_groups = set()
-        for nx, ny in self.board.get_neighbors(x, y):
-            if board_before_move[ny][nx] == opponent:
+            """
+            Checks if the move at (x,y) cuts two distinct enemy groups that were connected via that point.
+            """
+            opponent = 3 - player
+            
+            # 1. Get all unique neighboring enemy groups from the state *before* the move.
+            neighboring_enemy_groups = set()
+            for nx, ny in self.board.get_neighbors(x, y):
+                if board_before_move[ny][nx] == opponent:
+                    # Use a temporary board to analyze the "before" state
+                    temp_board = GoBoard(self.board_size)
+                    temp_board.board = board_before_move
+                    stones, _, _ = temp_board.get_group(nx, ny)
+                    neighboring_enemy_groups.add(frozenset(stones))
+            
+            if len(neighboring_enemy_groups) < 2:
+                return False
+
+            # 2. Check all pairs of these unique neighboring enemy groups
+            for group1_stones, group2_stones in itertools.combinations(neighboring_enemy_groups, 2):
+                # Use a temporary board for analysis of the "before" state
                 temp_board = GoBoard(self.board_size)
                 temp_board.board = board_before_move
-                stones, _, _ = temp_board.get_group(nx, ny)
-                neighboring_enemy_groups.add(frozenset(stones))
-        
-        if len(neighboring_enemy_groups) < 2:
+                
+                # 3. Calculate their common liberties before the move was made.
+                liberties1_before = temp_board.get_liberties_for_stones(list(group1_stones))
+                liberties2_before = temp_board.get_liberties_for_stones(list(group2_stones))
+                common_liberties_before = liberties1_before.intersection(liberties2_before)
+
+                # 4. A cut occurs if their ONLY common liberty was the point of the current move.
+                if common_liberties_before == {(x, y)}:
+                    return True
+                        
             return False
 
-        for group1_stones, group2_stones in itertools.combinations(neighboring_enemy_groups, 2):
-            temp_board = GoBoard(self.board_size)
-            temp_board.board = board_before_move
-            
-            liberties1_before = temp_board.get_liberties_for_stones(list(group1_stones))
-            liberties2_before = temp_board.get_liberties_for_stones(list(group2_stones))
-            common_liberties_before = liberties1_before.intersection(liberties2_before)
+    def is_connection_move(self, x, y, player, board_before_move):
+        adjacent_friends = []
+        for nx, ny in self.board.get_neighbors(x, y):
+            if board_before_move[ny][nx] == player:
+                adjacent_friends.append((nx, ny))
 
-            if common_liberties_before == {(x, y)}:
-                return True
-                    
-        return False
+        if len(adjacent_friends) < 2:
+            return False
+
+        temp_board_before = GoBoard(self.board_size)
+        temp_board_before.board = board_before_move
+        
+        first_friend_group, _, _ = temp_board_before.get_group(adjacent_friends[0][0], adjacent_friends[0][1])
+        
+        were_separate = False
+        for i in range(1, len(adjacent_friends)):
+            if adjacent_friends[i] not in first_friend_group:
+                were_separate = True
+                break
+        
+        if not were_separate:
+            return False
+
+        # The current `self.board` is the "after" state. `get_group` on the new stone (x,y) finds the final group.
+        new_group, _, _ = self.board.get_group(x, y)
+        for friend_stone in adjacent_friends:
+            if friend_stone not in new_group:
+                return False
+        
+        return True
 
     def detect_atari_threat(self, x, y, player):
         group, liberties, _ = self.board.get_group(x, y)
@@ -127,33 +170,36 @@ class GameAnalyzer:
 
         threats = []
         for lx, ly in liberties:
+            # Temporarily modify the "after" board to see what the opponent could do next.
             self.board.board[ly][lx] = 3 - player
             _, new_liberties, _ = self.board.get_group(x, y)
-            self.board.board[ly][lx] = 0
+            self.board.board[ly][lx] = 0 # Revert the change
             if len(new_liberties) == 1:
                 threats.append((lx,ly))
         
         return threats
         
     def detect_ko(self, x, y, player):
-        # This is a simplified placeholder
         return False
 
     def classify_move(self, x, y, move_index, report, player):
         details = {}
 
+        # Priority 1: Critical tactical and structural moves
         if report.get('captured_count', 0) > 0:
             return 'Capture', details
-        
         if report.get('atari'):
             return 'Atari', details
-        
+        if report.get('is_cut'):
+            return 'Cut', details
+        if report.get('is_connection'):
+            return 'Connection', details
         if report.get('atari_threats'):
             return 'Atari Threat', details
-        
         if report.get('is_contact'):
             return 'Contact Move', details
 
+        # Priority 2: Opening moves (fuseki) and territorial plays
         if self.board_size == 19 and move_index < 20:
             if (x, y) in [(3,3), (3,15), (15,3), (15,15)]: return 'Star Point', details
             if (x, y) in [(2,2), (2,16), (16,2), (16,16)]: return '3-3 Point', details
@@ -170,18 +216,12 @@ class GameAnalyzer:
             details['large_enclosure_type'] = large_enclosure_type
             return large_enclosure_type, details
 
+        # Default fallback
         return 'Normal Move', details
 
     def is_corner_enclosure(self, x, y, player):
         if self.board_size != 19: return None
-        corner_stones = [
-            (2,3), (3,2), (2,4), (4,2), (3,4), (4,3),
-            (2,15), (3,16), (2,14), (4,16), (3,14), (4,15),
-            (16,3), (15,2), (16,4), (14,2), (15,4), (14,3),
-            (16,15), (15,16), (16,14), (14,16), (15,14), (14,15)
-        ]
-        if (x,y) not in corner_stones: return None
-        
+        # Simplified logic
         dist, _ = self.distance_to_nearest_stones(x, y, player)
         if dist and dist < 2.5:
             return "Small Knight"
@@ -218,5 +258,5 @@ class GameAnalyzer:
                         if dist < min_dist_enemy:
                             min_dist_enemy = dist
 
-        return min_dist_friendly if min_dist_friendly != float('inf') else None, \
-               min_dist_enemy if min_dist_enemy != float('inf') else None
+        return (min_dist_friendly if min_dist_friendly != float('inf') else None,
+                min_dist_enemy if min_dist_enemy != float('inf') else None)
