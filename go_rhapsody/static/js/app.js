@@ -1,4 +1,3 @@
-// app.js
 let goBoard;
 let gameData = [];
 let wgoPlayer;
@@ -8,19 +7,26 @@ let playbackSpeed = 250;
 const gamma = .999;
 
 // --- NEW: Detailed, Controllable Music Configuration ---
-// This object now defines the *entire* musical behavior and will be manipulated by the UI.
 const musicControls = {
     'Capture': { label: '💥 Capture', instrument: 'membraneSynth', note: 'C3', volume: -5, duration: '0.4s' },
     'Atari': { label: '❗ Atari', instrument: 'gentleSynth', note: 'tension_chord', volume: -6, duration: '8n' },
+    'Cut': { label: '✂️ Cut', instrument: 'membraneSynth', note: 'G4', volume: -7, duration: '16n' },
+    'Connection': { label: '🔗 Connection', instrument: 'marimbaSynth', note: 'A4', volume: -9, duration: '4n' },
     'Atari Threat': { label: '⚠️ Atari Threat', instrument: 'gentleSynth', note: 'tension_dyad', volume: -8, duration: '16n' },
     'Star Point': { label: '⭐ Star Point', instrument: 'marimbaSynth', note: 'C4', volume: -9, duration: '2n' },
     '3-3 Point': { label: '🏡 3-3 Point', instrument: 'gentleSynth', note: 'C2', volume: -10, duration: '1n' },
     '3-4 Point': { label: '🎯 3-4 Point', instrument: 'marimbaSynth', note: 'E4', volume: -10, duration: '2n' },
+    'Corner Play': { label: '📐 Corner Play', instrument: 'gentleSynth', note: 'G3', volume: -12, duration: '2n' },
+    'Small Knight': { label: '🐴 Small Knight', instrument: 'marimbaSynth', note: 'D4', volume: -11, duration: '8n' },
+    'Large Knight': { label: '🐴 Large Knight', instrument: 'marimbaSynth', note: 'D4', volume: -9, duration: '8n' },
+    'One-Space Jump': { label: '🏃 One-Space Jump', instrument: 'marimbaSynth', note: 'F4', volume: -11, duration: '8n' },
+    'Two-Space Jump': { label: '🚀 Two-Space Jump', instrument: 'marimbaSynth', note: 'G4', volume: -11, duration: '8n' },
     'First Corner Play': { label: '🚩 First Corner', instrument: 'gentleSynth', note: 'melodic', volume: -12, duration: '4n' },
     'Corner Enclosure': { label: '🧱 Small Enclosure', instrument: 'marimbaSynth', note: 'stable_chord', volume: -11, duration: '4n' },
     'Large Enclosure': { label: '🏰 Large Enclosure', instrument: 'marimbaSynth', note: 'resolving_dyad', volume: -10, duration: '8n' },
     'Contact Move': { label: '🤝 Contact', instrument: 'gentleSynth', note: 'melodic_accent', volume: -5, duration: '8n' },
     'Normal Move': { label: '⚪ Normal', instrument: 'dynamic', note: 'melodic', volume: -16, duration: '8n' },
+    'FinishedGame': { label: '🏁 Game Finished', instrument: 'gentleSynth', note: 'C5', volume: -8, duration: '1n' },
 };
 
 // DOM elements
@@ -31,7 +37,8 @@ const nextBtn = document.getElementById('nextBtn');
 const resetBtn = document.getElementById('resetBtn');
 const statusMessageDiv = document.getElementById('status-message');
 const analysisDiv = document.getElementById('analysisDiv');
-const advancedControlsPanel = document.getElementById('advanced-controls-panel'); // NEW
+const analysisDetailsDiv = document.getElementById('analysis-details');
+const advancedControlsPanel = document.getElementById('advanced-controls-panel');
 
 // --- Helper Functions ---
 function showStatus(message, type = 'info') {
@@ -48,9 +55,9 @@ function setPlayPauseButton(isPlaying) {
     playPauseBtn.textContent = isPlaying ? 'Pause' : 'Play';
 }
 
-// --- NEW: Advanced Control Panel Builder ---
+// --- Advanced Control Panel Builder ---
 function setupAdvancedControls() {
-    advancedControlsPanel.innerHTML = ''; // Clear previous
+    advancedControlsPanel.innerHTML = '';
     for (const key in musicControls) {
         const config = musicControls[key];
 
@@ -59,14 +66,12 @@ function setupAdvancedControls() {
         legend.textContent = config.label;
         fieldset.appendChild(legend);
 
-        // 1. Instrument Selector (Dropdown)
         const instrLabel = document.createElement('label');
         instrLabel.textContent = 'Instrument: ';
         const instrSelect = document.createElement('select');
         instrSelect.dataset.key = key;
         instrSelect.dataset.param = 'instrument';
         ['marimbaSynth', 'gentleSynth', 'membraneSynth', 'dynamic'].forEach(instr => {
-             // 'dynamic' is a special case for Normal Move
             if (config.instrument !== 'dynamic' && instr === 'dynamic') return;
             const option = document.createElement('option');
             option.value = instr;
@@ -77,7 +82,6 @@ function setupAdvancedControls() {
         fieldset.appendChild(instrLabel);
         fieldset.appendChild(instrSelect);
 
-        // 2. Volume Slider
         const volLabel = document.createElement('label');
         volLabel.textContent = 'Volume (dB): ';
         const volSlider = document.createElement('input');
@@ -94,7 +98,6 @@ function setupAdvancedControls() {
         fieldset.appendChild(volSlider);
         fieldset.appendChild(volValueSpan);
 
-        // 3. Duration Input
         const durLabel = document.createElement('label');
         durLabel.textContent = 'Duration: ';
         const durInput = document.createElement('input');
@@ -105,11 +108,10 @@ function setupAdvancedControls() {
         fieldset.appendChild(durLabel);
         fieldset.appendChild(durInput);
 
-        // --- Event Listeners for controls ---
         instrSelect.addEventListener('change', handleControlChange);
-        volSlider.addEventListener('input', (e) => { // 'input' for live update
+        volSlider.addEventListener('input', (e) => {
             handleControlChange(e);
-            volValueSpan.textContent = e.target.value; // Update value display
+            volValueSpan.textContent = e.target.value;
         });
         durInput.addEventListener('change', handleControlChange);
 
@@ -121,14 +123,12 @@ function handleControlChange(event) {
     const { key, param } = event.target.dataset;
     let value = event.target.value;
 
-    // Convert value if necessary (e.g., for volume slider)
     if (param === 'volume') {
         value = parseFloat(value);
     }
 
     if (musicControls[key]) {
         musicControls[key][param] = value;
-        console.log(`Updated ${key}.${param} to:`, value);
     }
 }
 
@@ -143,7 +143,17 @@ function setupWGoPlayer(sgfString) {
 }
 
 function displayMoveAnalysis(report) {
-    if (report.type === 'Pass') { analysisDiv.innerHTML = `<strong>Move ${report.move_number} (${report.player}): Pass</strong>`; return; }
+    if (!report) {
+        analysisDiv.innerHTML = 'Upload an SGF file to begin.';
+        analysisDetailsDiv.innerHTML = '';
+        return;
+    }
+
+    if (report.type === 'Pass') { 
+        analysisDiv.innerHTML = `<strong>Move ${report.move_number} (${report.player}): Pass</strong>`;
+        analysisDetailsDiv.innerHTML = '';
+        return;
+    }
 
     let analysisText = `<strong>Move ${report.move_number} (${report.player}): ${report.sgf_coords}</strong>`;
     analysisText += `<br><br><strong>Move Type:</strong><ul>`;
@@ -153,14 +163,13 @@ function displayMoveAnalysis(report) {
         moveKey = 'Large Enclosure';
     }
     
-    const label = musicControls[moveKey]?.label || '⚪ Developing Move';
+    const label = musicControls[moveKey]?.label || `⚪ ${moveKey}`;
     const displayText = moveKey === 'Large Enclosure' ? `${label} (${report.type})` : label;
     analysisText += `<li>${displayText}</li>`;
 
     if (report.ko_detected) analysisText += `<li>⚖️ <strong>Ko:</strong> A ko fight may be starting.</li>`;
     analysisText += `</ul>`;
     
-    // Metrics section remains the same...
     analysisText += `<strong>Metrics:</strong><ul>`;
     if (report.distance_from_center !== null) analysisText += `<li><strong>Center:</strong> ${report.distance_from_center.toFixed(2)}</li>`;
     if (report.distance_from_previous_friendly_stone !== null) analysisText += `<li><strong>From Previous Friendly:</strong> ${report.distance_from_previous_friendly_stone.toFixed(2)}</li>`;
@@ -171,6 +180,26 @@ function displayMoveAnalysis(report) {
     analysisText += `</ul>`;
 
     analysisDiv.innerHTML = analysisText;
+
+    let detailsText = '<strong>Detected Patterns:</strong><ul>';
+    if (report.captures && report.captures.length > 0) detailsText += `<li>Captured ${report.captured_count} stone(s)</li>`;
+    if (report.atari && report.atari.length > 0) detailsText += `<li>Atari on ${report.atari.length} group(s)</li>`;
+    if (report.is_cut) detailsText += `<li>Is a cutting move</li>`;
+    if (report.is_connection) detailsText += `<li>Connects friendly groups</li>`;
+    if (report.atari_threats && report.atari_threats.length > 0) detailsText += `<li>Atari threat on ${report.atari_threats.length} group(s)</li>`;
+    if (report.is_contact) detailsText += `<li>Is a contact move</li>`;
+    if (report.large_enclosure_type) detailsText += `<li>Forms a large enclosure: ${report.large_enclosure_type}</li>`;
+    if (report.type === 'Star Point') detailsText += `<li>Played on a star point</li>`;
+    if (report.type === '3-3 Point') detailsText += `<li>Played on a 3-3 point</li>`;
+    if (report.type === '3-4 Point') detailsText += `<li>Played on a 3-4 point</li>`;
+    if (report.type === 'Corner Enclosure') detailsText += `<li>Makes a corner enclosure</li>`;
+    if (report.ko_detected) detailsText += `<li>A ko is detected</li>`;
+
+    if (detailsText === '<strong>Detected Patterns:</strong><ul>') {
+        detailsText += '<li>None</li>';
+    }
+    detailsText += '</ul>';
+    analysisDetailsDiv.innerHTML = detailsText;
 }
 
 function playNextMoveWithWGo() {
@@ -181,17 +210,17 @@ function playNextMoveWithWGo() {
         wgoPlayer.next();
         playbackSpeed = playbackSpeed * gamma;
         playbackIntervalId = setTimeout(playNextMoveWithWGo, playbackSpeed);
-        // Pass the entire controls object to the music engine
         playMusicalCue(report, musicControls);
     } else {
-        stopPlayback();
+        pausePlayback();
         showStatus("Playback finished.", "info");
+        playMusicalCue({type: 'FinishedGame'}, musicControls);
     }
 }
 
 function goToPrevMove() {
     pausePlayback();
-    if (currentMoveIndex > -1) {
+    if (currentMoveIndex > 0) {
         wgoPlayer.previous();
         currentMoveIndex--;
     }
@@ -243,6 +272,7 @@ function pausePlayback() {
 sgfUploadInput.addEventListener('change', async (event) => {
     const file = event.target.files[0];
     if (!file) return;
+    showStatus('Processing SGF...', 'info');
     enableControls(false);
     const formData = new FormData();
     formData.append('sgf_file', file);
@@ -250,6 +280,7 @@ sgfUploadInput.addEventListener('change', async (event) => {
         const response = await fetch('/upload_sgf', { method: 'POST', body: formData });
         const result = await response.json();
         if (response.ok) {
+            showStatus('Analyzing game...', 'info');
             const analysisResponse = await fetch(`/analysis/${result.game_id}`);
             const analysisResult = await analysisResponse.json();
             if (analysisResponse.ok) {
@@ -258,7 +289,8 @@ sgfUploadInput.addEventListener('change', async (event) => {
                 reader.onload = (e) => {
                     setupWGoPlayer(e.target.result);
                     enableControls(true);
-                    stopPlayback(); // Reset to initial state
+                    stopPlayback();
+                    showStatus('Ready. Press Play to start.', 'success');
                 };
                 reader.readAsText(file);
             } else {
@@ -269,6 +301,7 @@ sgfUploadInput.addEventListener('change', async (event) => {
         }
     } catch (error) {
         showStatus(`Network Error: ${error.message}`, "error");
+        enableControls(false);
     }
 });
 
@@ -277,5 +310,7 @@ prevBtn.addEventListener('click', goToPrevMove);
 nextBtn.addEventListener('click', goToNextMove);
 resetBtn.addEventListener('click', stopPlayback);
 
-// Build the control panel when the page loads
-document.addEventListener('DOMContentLoaded', setupAdvancedControls);
+document.addEventListener('DOMContentLoaded', () => {
+    setupAdvancedControls();
+    enableControls(false);
+});

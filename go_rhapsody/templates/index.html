@@ -4,11 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GoRhapsody</title>
-    <!-- External Stylesheets -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link type="text/css" href="{{ url_for('static', filename='css/wgo.player.css') }}" rel="stylesheet" />
     
-    <!-- Embedded Styles for the Dark Theme -->
     <style>
         /* --- Color Palette & Font --- */
         :root {
@@ -163,18 +161,18 @@
         #analysis-panel {
             height: fit-content; /* So it doesn't stretch to full height */
         }
-        #analysisDiv {
+        #analysisDiv, #analysis-details {
             font-size: 0.9em;
             line-height: 1.6;
         }
-        #analysisDiv strong {
+        #analysisDiv strong, #analysis-details strong {
             color: var(--accent-color);
         }
-        #analysisDiv ul {
+        #analysisDiv ul, #analysis-details ul {
             padding-left: 20px;
             margin-top: 5px;
         }
-        #analysisDiv li {
+        #analysisDiv li, #analysis-details li {
             margin-bottom: 5px;
         }
 
@@ -184,7 +182,6 @@
 
     <div id="page-wrapper">
         
-        <!-- === LEFT PANEL === -->
         <div id="left-panel">
             
             <div id="sgf-upload-section" class="panel">
@@ -195,18 +192,15 @@
             <div id="advanced-controls-container" class="panel">
                 <h2>Sound Control Panel</h2>
                 <div id="advanced-controls-panel">
-                    <!-- This will be populated by app.js -->
-                </div>
+                    </div>
             </div>
 
         </div>
 
-        <!-- === MAIN PANEL === -->
         <div id="main-panel">
 
             <div id="game-info-panel" class="panel">
-                <!-- Player info will be populated here -->
-            </div>
+                </div>
 
             <div id="goban-container">
                 <div id="wgo-player-display"></div>
@@ -222,7 +216,6 @@
             <div id="status-message"></div>
         </div>
 
-        <!-- === RIGHT PANEL (for Analysis) === -->
         <div id="right-panel">
             <div id="analysis-panel" class="panel">
                 <h3>Move Analysis</h3>
@@ -230,11 +223,15 @@
                     Upload an SGF file to begin.
                 </div>
             </div>
+            <div id="analysis-details-panel" class="panel">
+                <h3>Analysis Details</h3>
+                <div id="analysis-details">
+                    </div>
+            </div>
         </div>
 
     </div>
 
-    <!-- JavaScript files -->
     <script src="{{ url_for('static', filename='js/wgo.min.js') }}"></script>
     <script src="{{ url_for('static', filename='js/wgo.player.min.js') }}"></script>
     <script src="https://unpkg.com/tone"></script>
