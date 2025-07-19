@@ -26,6 +26,7 @@ const musicControls = {
     'Large Enclosure': { label: '🏰 Large Enclosure', instrument: 'marimbaSynth', note: 'resolving_dyad', volume: -10, duration: '8n' },
     'Contact Move': { label: '🤝 Contact', instrument: 'gentleSynth', note: 'melodic_accent', volume: -5, duration: '8n' },
     'Normal Move': { label: '⚪ Normal', instrument: 'dynamic', note: 'melodic', volume: -16, duration: '8n' },
+    'FinishedGame': { label: '🏁 Game Finished', instrument: 'gentleSynth', note: 'C5', volume: -8, duration: '1n' },
 };
 
 // DOM elements
@@ -211,8 +212,9 @@ function playNextMoveWithWGo() {
         playbackIntervalId = setTimeout(playNextMoveWithWGo, playbackSpeed);
         playMusicalCue(report, musicControls);
     } else {
-        stopPlayback();
+        pausePlayback();
         showStatus("Playback finished.", "info");
+        playMusicalCue({type: 'FinishedGame'}, musicControls);
     }
 }
 
