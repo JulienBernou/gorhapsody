@@ -35,8 +35,8 @@ class GameAnalyzer:
         self.board_size: int = board_size
         self.analysis_log: List[Dict] = []
         self.log = getLogger("Analyzer")
-        self.log.info(f"GameAnalyzer initialized for a {board_size}x{board_size} board.")
-        self.last_friendly_move_coords: Dict[StoneColorSGF, Optional[Tuple[int, int]]] = {SGF_BLACK: None, SGF_WHITE: None}
+        self.log.info(f"GameAnalyzer initialized for a {board_size}x{self.board_size} board.")
+        # self.last_friendly_move_coords: Dict[StoneColorSGF, Optional[Tuple[int, int]]] = {SGF_BLACK: None, SGF_WHITE: None} # This will now be passed
         self.first_corner_played: Dict[StoneColorSGF, bool] = {SGF_BLACK: False, SGF_WHITE: False}
 
     def _coords_to_sgf_string(self, r: int, c: int) -> str:
@@ -131,8 +131,8 @@ class GameAnalyzer:
                         min_dist = dist
         return min_dist
 
-    def _calculate_distance_to_previous_friendly_stone(self, current_move_row: int, current_move_col: int, player_color: StoneColorSGF) -> Optional[float]:
-        previous_friendly_coords = self.last_friendly_move_coords.get(player_color)
+    def _calculate_distance_to_previous_friendly_stone(self, current_move_row: int, current_move_col: int, player_color: StoneColorSGF, last_friendly_move_coords_dict: Dict[StoneColorSGF, Optional[Tuple[int, int]]]) -> Optional[float]:
+        previous_friendly_coords = last_friendly_move_coords_dict.get(player_color)
         if previous_friendly_coords is None:
             return None
         dx = current_move_row - previous_friendly_coords[0]
@@ -251,7 +251,7 @@ class GameAnalyzer:
         return None
 
 
-    def analyze_pattern_after_move(self, move_number: int, row: int, col: int, player_color_char: str, current_board_obj: sgfmill.boards.Board, board_before_move_list: BoardStateList, report: Dict) -> None:
+    def analyze_pattern_after_move(self, move_number: int, row: int, col: int, player_color_char: str, current_board_obj: sgfmill.boards.Board, board_before_move_list: BoardStateList, report: Dict, last_friendly_move_coords: Dict[StoneColorSGF, Optional[Tuple[int, int]]]) -> None:
         player_color: StoneColorSGF = SGF_BLACK if player_color_char == 'b' else SGF_WHITE
         player_color_list: StoneColorList = LIST_BLACK if player_color_char == 'b' else LIST_WHITE
         self.log.debug(f"Analyzing patterns for move {move_number} at ({row},{col}) by {player_color_char}")
@@ -259,7 +259,7 @@ class GameAnalyzer:
         report['distance_from_center'] = self._calculate_distance_from_center(row, col)
         report['distance_to_nearest_friendly_stone'] = self._calculate_distance_to_nearest_friendly_stone(current_board_obj, row, col, player_color)
         report['distance_to_nearest_enemy_stone'] = self._calculate_distance_to_nearest_enemy_stone(current_board_obj, row, col, player_color)
-        report['distance_from_previous_friendly_stone'] = self._calculate_distance_to_previous_friendly_stone(row, col, player_color)
+        report['distance_from_previous_friendly_stone'] = self._calculate_distance_to_previous_friendly_stone(row, col, player_color, last_friendly_move_coords)
 
         atari_groups, atari_threat_groups = self._check_atari_threats(current_board_obj, row, col, player_color)
         captured_stones = self._check_captures(current_board_obj, player_color, board_before_move_list)
@@ -284,6 +284,19 @@ class GameAnalyzer:
             report['musical_intensity'] = 'rising_tension'
             move_type_set = True
 
+        # New condition: If distance to nearest friendly stone is 1.0, bypass enclosure detections
+        if report['distance_to_nearest_friendly_stone'] == 1.0:
+            self.log.debug(f"Skipping enclosure detection for ({row},{col}) due to distance to nearest friendly stone being 1.0.")
+            if not move_type_set: # If no capture/atari was detected, default to Contact or Normal Move
+                if is_contact:
+                    report['type'] = 'Contact Move'
+                    report['musical_intensity'] = 'close_engagement'
+                else:
+                    report['type'] = 'Normal Move'
+                    report['musical_intensity'] = 'background_pulse'
+            return # Exit the function early to prevent further enclosure/point type checks
+
+        # Original enclosure/point type checks (only run if not a "distance 1" move)
         if not move_type_set:
             large_enclosure_type = self._check_large_enclosure(row, col, player_color_list, board_before_move_list)
             if large_enclosure_type:
@@ -327,7 +340,8 @@ class GameAnalyzer:
             board = sgfmill.boards.Board(self.board_size)
             main_sequence: List[sgfmill.sgf.Sgf_node] = list(game.get_main_sequence())
 
-            self.last_friendly_move_coords = {SGF_BLACK: None, SGF_WHITE: None}
+            # last_friendly_move_coords is now a local variable in analyze_sgf_game
+            last_friendly_move_coords: Dict[StoneColorSGF, Optional[Tuple[int, int]]] = {SGF_BLACK: None, SGF_WHITE: None}
             self.first_corner_played = {SGF_BLACK: False, SGF_WHITE: False}
 
             for i, node in enumerate(main_sequence[1:], start=1):
@@ -354,8 +368,9 @@ class GameAnalyzer:
                     ko_point: Optional[Tuple[int, int]] = board.play(r, c, color_char)
                     if ko_point is not None:
                         analysis_report['ko_detected'] = True
-                    self.analyze_pattern_after_move(move_number=i, row=r, col=c, player_color_char=color_char, current_board_obj=board, board_before_move_list=board_before_move_copy, report=analysis_report)
-                    self.last_friendly_move_coords[player_color_sgf] = (r, c)
+                    # Pass last_friendly_move_coords to analyze_pattern_after_move
+                    self.analyze_pattern_after_move(move_number=i, row=r, col=c, player_color_char=color_char, current_board_obj=board, board_before_move_list=board_before_move_copy, report=analysis_report, last_friendly_move_coords=last_friendly_move_coords)
+                    last_friendly_move_coords[player_color_sgf] = (r, c) # Update the local variable
 
                 analysis_report['board_after_move_state'] = self._board_to_list(board)
                 self.analysis_log.append(analysis_report)
