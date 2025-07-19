@@ -52,7 +52,8 @@ class GameAnalyzer:
             report['is_cut'] = self.is_cut_move(x, y, player, board_before_move)
             report['is_connection'] = self.is_connection_move(x, y, player, board_before_move)
             report['is_corner_play'] = self.is_corner_play(x, y)
-            report['is_small_night'] = self.is_small_night(x, y, player)
+            report['is_small_knight'] = self.is_small_knight(x, y, player)
+            report['is_large_knight'] = self.is_large_knight(x, y, player)
             report['is_one_space_jump'] = self.is_one_space_jump(x, y, player)
             report['is_two_space_jump'] = self.is_two_space_jump(x, y, player)
 
@@ -220,9 +221,10 @@ class GameAnalyzer:
             return 'Corner Enclosure', details
         
         # Priority 3: Shape formations
-        if report.get('is_small_night'): return 'Small Knight', {}
         if report.get('is_one_space_jump'): return 'One-Space Jump', {}
         if report.get('is_two_space_jump'): return 'Two-Space Jump', {}
+        if report.get('is_small_knight'): return 'Small Knight', {}
+        if report.get('is_large_knight'): return 'Large Knight', {}
 
         # Priority 4: General territorial plays
         if report.get('is_corner_play'): return 'Corner Play', {}
@@ -230,13 +232,52 @@ class GameAnalyzer:
         # Default fallback
         return 'Normal Move', details
 
-    def is_small_night(self, x, y, player):
-        if self.board_size != 19: return None
-        dist, _ = self.distance_to_nearest_stones(x, y, player)
-        if dist and dist < 2.5:
-            return "Small Knight"
-        return None
+    def is_small_knight(self, x, y, player):
+        """
+        Checks if the move at (x, y) completes a small knight's move (keima)
+        with another friendly stone. This is a shape with relative coordinates
+        of (1, 2) or (2, 1).
+        """
+        # Define the 8 possible locations for a small knight's move connection.
+        knight_moves = [
+            (1, 2), (1, -2), (-1, 2), (-1, -2),
+            (2, 1), (2, -1), (-2, 1), (-2, -1)
+        ]
+
+        for dx, dy in knight_moves:
+            nx, ny = x + dx, y + dy
+
+            # Check if the potential location is on the board.
+            if 0 <= nx < self.board_size and 0 <= ny < self.board_size:
+                # Check if a friendly stone exists at that location.
+                if self.board.board[ny][nx] == player:
+                    return True
+                    
+        return False
     
+    def is_large_knight(self, x, y, player):
+        """
+        Checks if the move at (x, y) completes a large knight's move (oogeima)
+        with another friendly stone. This is a shape with relative coordinates
+        of (1, 3) or (3, 1).
+        """
+        # Define the 8 possible locations for a large knight's move connection.
+        large_knight_moves = [
+            (1, 3), (1, -3), (-1, 3), (-1, -3),
+            (3, 1), (3, -1), (-3, 1), (-3, -1)
+        ]
+
+        for dx, dy in large_knight_moves:
+            nx, ny = x + dx, y + dy
+
+            # Check if the potential location is on the board.
+            if 0 <= nx < self.board_size and 0 <= ny < self.board_size:
+                # Check if a friendly stone exists at that location.
+                if self.board.board[ny][nx] == player:
+                    return True
+                    
+        return False
+
     def is_one_space_jump(self, x, y, player):
         if self.board_size != 19: return None
         dist, _ = self.distance_to_nearest_stones(x, y, player)
