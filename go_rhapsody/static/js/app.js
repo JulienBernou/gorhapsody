@@ -6,7 +6,7 @@ let playbackIntervalId = null;
 let playbackSpeed = 300;
 const gamma = .999;
 
-// --- NEW: Detailed, Controllable Music Configuration ---
+// --- Detailed, Controllable Music Configuration ---
 const musicControls = {
     'Capture': { label: '💥 Capture', instrument: 'membraneSynth', note: 'C3', volume: -5, duration: '0.4s' },
     'Atari': { label: '❗ Atari', instrument: 'gentleSynth', note: 'tension_chord', volume: -6, duration: '8n' },
@@ -39,6 +39,8 @@ const statusMessageDiv = document.getElementById('status-message');
 const analysisDiv = document.getElementById('analysisDiv');
 const analysisDetailsDiv = document.getElementById('analysis-details');
 const advancedControlsPanel = document.getElementById('advanced-controls-panel');
+const distributionChartDiv = document.getElementById('distribution-chart');
+
 
 // --- Helper Functions ---
 function showStatus(message, type = 'info') {
@@ -202,6 +204,48 @@ function displayMoveAnalysis(report) {
     analysisDetailsDiv.innerHTML = detailsText;
 }
 
+function displayMoveDistribution(data) {
+    distributionChartDiv.innerHTML = ''; // Clear previous chart
+    const moveCounts = {};
+
+    // Count occurrences of each move type
+    data.forEach(report => {
+        if (report.type === 'Pass') return; // Don't include passes in distribution
+        let moveKey = report.type;
+        // Consolidate enclosure types for cleaner analysis
+        if (moveKey.includes('Enclosure') && moveKey !== 'Corner Enclosure') {
+            moveKey = 'Large Enclosure';
+        }
+        moveCounts[moveKey] = (moveCounts[moveKey] || 0) + 1;
+    });
+
+    const totalMoves = data.filter(r => r.type !== 'Pass').length;
+    if (totalMoves === 0) return;
+
+    // Create and display the bar chart elements
+    for (const moveKey in moveCounts) {
+        const count = moveCounts[moveKey];
+        const percentage = ((count / totalMoves) * 100).toFixed(1);
+        const label = musicControls[moveKey]?.label || moveKey;
+
+        const barContainer = document.createElement('div');
+        barContainer.className = 'bar-container';
+
+        const barLabel = document.createElement('div');
+        barLabel.className = 'bar-label';
+        barLabel.textContent = label;
+        
+        const bar = document.createElement('div');
+        bar.className = 'bar';
+        bar.style.width = `${percentage}%`;
+        bar.textContent = `${percentage}%`;
+
+        barContainer.appendChild(barLabel);
+        barContainer.appendChild(bar);
+        distributionChartDiv.appendChild(barContainer);
+    }
+}
+
 function playNextMoveWithWGo() {
     if (currentMoveIndex < gameData.length - 1) {
         currentMoveIndex++;
@@ -247,7 +291,7 @@ function stopPlayback() {
     pausePlayback();
     currentMoveIndex = -1;
     playbackSpeed = 250;
-    wgoPlayer.first();
+    if (wgoPlayer) wgoPlayer.first();
     setPlayPauseButton(false);
     displayMoveAnalysis(null);
     playMusicalCue({type: 'ResetGame'}, musicControls);
@@ -274,6 +318,7 @@ sgfUploadInput.addEventListener('change', async (event) => {
     if (!file) return;
     showStatus('Processing SGF...', 'info');
     enableControls(false);
+    distributionChartDiv.innerHTML = ''; // Clear previous chart
     const formData = new FormData();
     formData.append('sgf_file', file);
     try {
@@ -285,12 +330,15 @@ sgfUploadInput.addEventListener('change', async (event) => {
             const analysisResult = await analysisResponse.json();
             if (analysisResponse.ok) {
                 gameData = analysisResult;
+                displayMoveDistribution(gameData); // <<<--- ADDED THIS LINE
                 const reader = new FileReader();
                 reader.onload = (e) => {
                     setupWGoPlayer(e.target.result);
-                    enableControls(true);
-                    stopPlayback();
-                    showStatus('Ready. Press Play to start.', 'success');
+                    if (wgoPlayer) {
+                        enableControls(true);
+                        stopPlayback();
+                        showStatus('Ready. Press Play to start.', 'success');
+                    }
                 };
                 reader.readAsText(file);
             } else {
