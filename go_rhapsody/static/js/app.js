@@ -6,16 +6,49 @@ let currentMoveIndex = -1;
 let playbackIntervalId = null;
 let playbackSpeed = 300;
 const gamma = .999;
-let currentSgfContent = ''; // To store the SGF content for theme reloading
+let currentSgfContent = '';
 
-// --- Board Theme Configurations (WITH STONE STYLES) ---
+// --- Board Theme Configurations ---
 const boardThemes = {
+    noir_et_or: {
+        // UPDATED: Lighter charcoal slate for better contrast
+        background: "#3a3a3a", 
+        lineColor: "rgba(190, 160, 100, 0.6)",
+        lineWidth: 1,
+        starColor: "rgba(190, 160, 100, 0.8)",
+        stone: {
+            type: function(ctx, x, y, r, stone) {
+                if (stone.c === WGo.B) {
+                    const grd = ctx.createRadialGradient(x - r * 0.4, y - r * 0.4, r * 0.1, x, y, r * 1.2);
+                    grd.addColorStop(0, "#4a4a4a");
+                    grd.addColorStop(1, "#010101");
+                    ctx.fillStyle = grd;
+                } else {
+                    const grd = ctx.createRadialGradient(x - r * 0.4, y - r * 0.4, r * 0.2, x, y, r);
+                    grd.addColorStop(0, "#ffffff");
+                    grd.addColorStop(1, "#e0e0e0");
+                    ctx.fillStyle = grd;
+                    ctx.shadowColor = 'rgba(0,0,0,0.3)';
+                    ctx.shadowBlur = 2;
+                    ctx.shadowOffsetX = 1;
+                    ctx.shadowOffsetY = 1;
+                }
+                ctx.beginPath();
+                ctx.arc(x, y, r, 0, 2 * Math.PI, true);
+                ctx.fill();
+                ctx.shadowColor = 'transparent';
+                ctx.shadowBlur = 0;
+                ctx.shadowOffsetX = 0;
+                ctx.shadowOffsetY = 0;
+            }
+        }
+    },
     classic: {
         background: "#e0ac69",
         lineWidth: 1,
         lineColor: "#4a4a4a",
         starColor: "#4a4a4a",
-        stone: { // Flat, classic stones
+        stone: {
             black: { shadow: 0, lineWidth: 0.5, strokeStyle: '#222' },
             white: { shadow: 0, lineWidth: 0.5, strokeStyle: '#999' }
         }
@@ -25,8 +58,8 @@ const boardThemes = {
         lineWidth: 1,
         lineColor: "#b0b0b0",
         starColor: "#b0b0b0",
-        stone: { // Stones with a subtle glow for dark mode
-             black: { shadow: 8, shadowColor: "rgba(0, 188, 212, 0.3)", lineWidth: 0 },
+        stone: {
+            black: { shadow: 8, shadowColor: "rgba(0, 188, 212, 0.3)", lineWidth: 0 },
             white: { shadow: 8, shadowColor: "rgba(255, 255, 255, 0.3)", lineWidth: 0 }
         }
     }
@@ -85,30 +118,57 @@ function setPlayPauseButton(isPlaying) {
     playPauseBtn.textContent = isPlaying ? 'Pause' : 'Play';
 }
 
-/**
- * Creates or recreates the Go board player with a complete configuration.
- */
+function setupAdvancedControls() {
+    advancedControlsPanel.innerHTML = '';
+    for (const key in musicControls) {
+        const config = musicControls[key];
+        const fieldset = document.createElement('fieldset');
+        const legend = document.createElement('legend');
+        legend.textContent = config.label;
+        fieldset.appendChild(legend);
+
+        const instrLabel = document.createElement('label');
+        instrLabel.textContent = 'Instrument: ';
+        const instrSelect = document.createElement('select');
+        instrSelect.dataset.key = key;
+        instrSelect.dataset.param = 'instrument';
+        ['marimbaSynth', 'gentleSynth', 'membraneSynth', 'piano', 'kalimba', 'pluckSynth', 'dynamic'].forEach(instr => {
+            if (config.instrument !== 'dynamic' && instr === 'dynamic') return;
+            const option = document.createElement('option');
+            option.value = instr;
+            option.textContent = instr.replace('Synth', '');
+            if (config.instrument === instr) option.selected = true;
+            instrSelect.appendChild(option);
+        });
+        fieldset.appendChild(instrLabel);
+        fieldset.appendChild(instrSelect);
+
+        instrSelect.addEventListener('change', handleControlChange);
+        advancedControlsPanel.appendChild(fieldset);
+    }
+}
+
+function handleControlChange(event) {
+    const { key, param } = event.target.dataset;
+    let value = event.target.value;
+    if (musicControls[key]) {
+        musicControls[key][param] = value;
+    }
+}
+
 function createWgoPlayer() {
     if (!currentSgfContent) return;
-
     const selectedTheme = boardThemeSelect.value;
     const themeConfig = boardThemes[selectedTheme];
     const lastMove = currentMoveIndex;
-
     if (wgoPlayer) {
         wgoPlayer.destroy();
     }
     wgoPlayerDisplay.innerHTML = '';
-
-    // Create the new player with a complete configuration object
     wgoPlayer = new WGo.BasicPlayer(wgoPlayerDisplay, {
         sgf: currentSgfContent,
-        board: themeConfig, // Applies background, lines, AND stone styles
-        
-        // Options to hide all native WGo.js UI elements
-        layout: { 
-            top: [], right: [], left: [], bottom: [],
-        },
+        board: themeConfig,
+        layout: { top: [], right: [], left: [], bottom: [] },
         showGameInfo: false,
         showKomi: false,
         showPlayerNames: false,
@@ -118,23 +178,19 @@ function createWgoPlayer() {
         enableWheel: false,
         enableMoving: false
     });
-
     if (lastMove > 0) {
         wgoPlayer.goTo(lastMove);
     }
-    
     gobanContainer.className = `theme-${selectedTheme}`;
 }
 
-
-// --- Go Board and Playback Logic ---
 function displayMoveAnalysis(report) {
     if (!report) {
         analysisDiv.innerHTML = 'Upload an SGF file to begin.';
         analysisDetailsDiv.innerHTML = '';
         return;
     }
-    if (report.type === 'Pass') { 
+    if (report.type === 'Pass') {
         analysisDiv.innerHTML = `<strong>Move ${report.move_number} (${report.player}): Pass</strong>`;
         analysisDetailsDiv.innerHTML = '';
         return;
@@ -310,7 +366,7 @@ sgfUploadInput.addEventListener('change', async (event) => {
         } else {
             showStatus(`Upload Failed: ${result.error}`, "error");
         }
-    } catch (error) { // <-- The typo is fixed here
+    } catch (error) {
         showStatus(`Network Error: ${error.message}`, "error");
         enableControls(false);
     }
@@ -323,5 +379,6 @@ nextBtn.addEventListener('click', goToNextMove);
 resetBtn.addEventListener('click', stopPlayback);
 
 document.addEventListener('DOMContentLoaded', () => {
+    setupAdvancedControls();
     enableControls(false);
 });

@@ -3,20 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GoRhapsody</title>
+    <title>Go Rhapsody</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <link type="text/css" href="{{ url_for('static', filename='css/wgo.player.css') }}" rel="stylesheet" />
-    
-    <style></style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/wgo.player.css') }}">
 </head>
 <body>
+    <h1>Go Rhapsody</h1>
 
     <div id="page-wrapper">
-        
         <div id="left-panel">
-            
             <div id="sgf-upload-section" class="panel">
-                <label for="sgfUpload">Upload SGF File</label>
+                <h3>Load Game</h3>
+                <label for="sgfUpload">Select SGF File:</label>
                 <input type="file" id="sgfUpload" accept=".sgf">
             </div>
 
@@ -24,58 +22,51 @@
                 <h3>Board Style</h3>
                 <label for="board-theme-select">Theme:</label>
                 <select id="board-theme-select">
+                    <option value="noir_et_or" selected>Noir et Or</option>
                     <option value="classic">Classic Light</option>
                     <option value="dark">Dark Mode</option>
                 </select>
             </div>
-
+            
             <div id="advanced-controls-container" class="panel">
-                <h2>Sound Control Panel</h2>
+                <h2>Musical Configuration</h2>
                 <div id="advanced-controls-panel">
                     </div>
             </div>
-
         </div>
 
         <div id="main-panel">
-
-            <div id="goban-container">
+            <div id="goban-container" class="theme-noir_et_or">
                 <div id="wgo-player-display"></div>
             </div>
-
             <div id="controls">
-                <button id="prevBtn" disabled>&laquo; Prev</button>
                 <button id="playPauseBtn" disabled>Play</button>
-                <button id="nextBtn" disabled>Next &raquo;</button>
+                <button id="prevBtn" disabled>Previous</button>
+                <button id="nextBtn" disabled>Next</button>
                 <button id="resetBtn" disabled>Reset</button>
             </div>
-            
-            <div id="status-message"></div>
+            <div id="status-message">Upload an SGF file to begin.</div>
         </div>
 
         <div id="right-panel">
             <div id="analysis-panel" class="panel">
                 <h3>Move Analysis</h3>
-                <div id="analysisDiv">
-                    Upload an SGF file to begin.
-                </div>
+                <div id="analysisDiv"></div>
             </div>
             <div id="analysis-details-panel" class="panel">
                 <h3>Analysis Details</h3>
-                <div id="analysis-details">
-                    </div>
+                <div id="analysis-details"></div>
             </div>
             <div id="move-distribution-panel" class="panel">
                 <h3>Move Pattern Distribution</h3>
                 <div id="distribution-chart"></div>
-             </div>
+            </div>
         </div>
-
     </div>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
     <script src="{{ url_for('static', filename='js/wgo.min.js') }}"></script>
     <script src="{{ url_for('static', filename='js/wgo.player.min.js') }}"></script>
-    <script src="https://unpkg.com/tone"></script>
     <script src="{{ url_for('static', filename='js/music_engine.js') }}"></script>
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
