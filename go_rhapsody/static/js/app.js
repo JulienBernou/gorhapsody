@@ -3,7 +3,7 @@ let gameData = [];
 let wgoPlayer;
 let currentMoveIndex = -1;
 let playbackIntervalId = null;
-let playbackSpeed = 250;
+let playbackSpeed = 300;
 const gamma = .999;
 
 // --- NEW: Detailed, Controllable Music Configuration ---
@@ -71,7 +71,7 @@ function setupAdvancedControls() {
         const instrSelect = document.createElement('select');
         instrSelect.dataset.key = key;
         instrSelect.dataset.param = 'instrument';
-        ['marimbaSynth', 'gentleSynth', 'membraneSynth', 'dynamic'].forEach(instr => {
+        ['marimbaSynth', 'gentleSynth', 'membraneSynth', 'piano', 'kalimba', 'pluckSynth', 'dynamic'].forEach(instr => {
             if (config.instrument !== 'dynamic' && instr === 'dynamic') return;
             const option = document.createElement('option');
             option.value = instr;

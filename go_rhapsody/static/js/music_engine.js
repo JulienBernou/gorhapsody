@@ -14,7 +14,7 @@ document.documentElement.addEventListener('mousedown', startAudioContext);
 document.documentElement.addEventListener('keydown', startAudioContext);
 document.documentElement.addEventListener('touchstart', startAudioContext);
 
-// --- Instruments ---
+// --- Instruments (UPDATED) ---
 const instruments = {
     marimbaSynth: new Tone.PolySynth(Tone.Synth, {
         oscillator: { type: "sine" },
@@ -30,8 +30,27 @@ const instruments = {
         pitchDecay: 0.06, octaves: 1.0,
         envelope: { attack: 0.001, decay: 0.4, sustain: 0.01, release: 1.0 },
         volume: -7
-    }).toDestination()
+    }).toDestination(),
+    // --- NEW INSTRUMENTS ---
+    piano: new Tone.PolySynth(Tone.Synth, {
+        oscillator: { type: "square" },
+        envelope: { attack: 0.01, decay: 0.6, sustain: 0.1, release: 1.2 },
+        volume: -10
+    }).toDestination(),
+    kalimba: new Tone.PolySynth(Tone.Synth, {
+        oscillator: { type: "sine" },
+        envelope: { attack: 0.001, decay: 0.5, sustain: 0.01, release: 1.0 },
+        volume: -8
+    }).toDestination(),
+    pluckSynth: new Tone.PluckSynth({
+        attackNoise: 1,
+        dampening: 4000,
+        resonance: 0.7,
+        release: 1,
+        volume: -6
+    }).toDestination(),
 };
+
 
 // --- Effects ---
 const masterReverb = new Tone.Reverb({ decay: 4.5, preDelay: 0.08, wet: 0.5 }).toDestination();
