@@ -3,238 +3,70 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GoRhapsody</title>
+    <title>Go Rhapsody</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <link type="text/css" href="{{ url_for('static', filename='css/wgo.player.css') }}" rel="stylesheet" />
-    
-    <style>
-        /* --- Color Palette & Font --- */
-        :root {
-            --bg-color: #121212;
-            --panel-bg-color: #1e1e1e;
-            --text-color: #e0e0e0;
-            --text-muted-color: #9e9e9e;
-            --accent-color: #00bcd4;
-            --accent-glow: rgba(0, 188, 212, 0.2);
-            --accent-hover: #26c6da;
-            --border-color: #2c2c2c;
-            --success-color: #4CAF50;
-            --error-color: #f44336;
-            --font-main: 'Segoe UI', 'Roboto', system-ui, sans-serif;
-        }
-
-        body {
-            font-family: var(--font-main);
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            margin: 0;
-            padding: 20px;
-        }
-
-        /* --- General Layout (UPDATED for 3 columns) --- */
-        #page-wrapper {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 30px;
-            justify-content: center; /* Center the whole layout */
-            max-width: 1400px; /* Increased max-width for 3 columns */
-            margin: 0 auto;
-        }
-
-        #left-panel, #right-panel {
-            flex: 0 0 300px; /* Give left and right panels a fixed width */
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
-        
-        #main-panel {
-            flex-grow: 1;
-            max-width: 520px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-
-        h2, h3 {
-            color: var(--accent-color);
-            margin-top: 0;
-            margin-bottom: 15px;
-            font-size: 1.3em;
-            font-weight: 600;
-            text-shadow: 0 0 8px var(--accent-glow);
-        }
-        
-        /* --- UI Panels --- */
-        .panel {
-            background-color: var(--panel-bg-color);
-            padding: 20px;
-            border-radius: 12px;
-            border: 1px solid var(--border-color);
-            box-shadow: 0 6px 20px rgba(0,0,0,0.2);
-        }
-
-        /* --- SGF Uploader & Controls --- */
-        #sgf-upload-section label, #advanced-controls-panel legend {
-            font-weight: 600;
-            font-size: 0.9em;
-            margin-bottom: 8px;
-        }
-        
-        #sgf-upload-section input[type="file"] {
-            width: 100%;
-            font-size: 0.8em;
-        }
-        input[type="file"]::file-selector-button {
-            background-color: var(--accent-color);
-            color: #000;
-            border: none;
-            padding: 6px 10px;
-            border-radius: 4px;
-            cursor: pointer;
-            transition: background-color 0.2s ease;
-        }
-        input[type="file"]::file-selector-button:hover {
-            background-color: var(--accent-hover);
-        }
-
-        /* --- Main Content --- */
-        #goban-container {
-            width: 500px;
-            height: 500px;
-            border: 1px solid var(--border-color);
-            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
-            background-color: #181818;
-            padding: 10px;
-            border-radius: 8px;
-        }
-
-        #controls {
-            margin-top: 20px;
-            display: flex;
-            gap: 10px;
-        }
-
-        button {
-            padding: 8px 16px;
-            border: 1px solid var(--accent-color);
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 0.9em;
-            font-weight: 600;
-            transition: all 0.2s ease;
-            background-color: transparent;
-            color: var(--accent-color);
-        }
-        button:hover:enabled {
-            background-color: var(--accent-glow);
-            box-shadow: 0 0 15px var(--accent-glow);
-            transform: translateY(-1px);
-        }
-        button:disabled {
-            border-color: var(--border-color);
-            color: var(--text-muted-color);
-            cursor: not-allowed;
-        }
-
-        #status-message {
-            margin-top: 15px; font-weight: bold; min-height: 20px; text-align: center;
-        }
-        .error { color: var(--error-color); }
-        .success { color: var(--success-color); }
-
-        /* --- Advanced Controls Panel --- */
-        #advanced-controls-container h2 { text-align: left; }
-        #advanced-controls-panel fieldset {
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-            padding: 10px; margin-bottom: 8px;
-        }
-        #advanced-controls-panel legend { color: var(--accent-color); font-weight: 600; font-size: 0.9em; padding: 0 5px; }
-        #advanced-controls-panel label { font-size: 0.85em; color: var(--text-muted-color); }
-        #advanced-controls-panel input, #advanced-controls-panel select {
-            background-color: #333; color: var(--text-color); border: 1px solid #555;
-            border-radius: 4px; padding: 4px; font-size: 0.85em; width: 100%; box-sizing: border-box;
-        }
-
-        /* --- Analysis Panel (NEW) --- */
-        #analysis-panel {
-            height: fit-content; /* So it doesn't stretch to full height */
-        }
-        #analysisDiv, #analysis-details {
-            font-size: 0.9em;
-            line-height: 1.6;
-        }
-        #analysisDiv strong, #analysis-details strong {
-            color: var(--accent-color);
-        }
-        #analysisDiv ul, #analysis-details ul {
-            padding-left: 20px;
-            margin-top: 5px;
-        }
-        #analysisDiv li, #analysis-details li {
-            margin-bottom: 5px;
-        }
-
-    </style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/wgo.player.css') }}">
 </head>
 <body>
+    <h1>Go Rhapsody</h1>
 
     <div id="page-wrapper">
-        
         <div id="left-panel">
-            
             <div id="sgf-upload-section" class="panel">
-                <label for="sgfUpload">Upload SGF File</label>
+                <h3>Load Game</h3>
+                <label for="sgfUpload">Select SGF File:</label>
                 <input type="file" id="sgfUpload" accept=".sgf">
             </div>
 
+            <div id="styling-panel" class="panel">
+                <h3>Board Style</h3>
+                <label for="board-theme-select">Theme:</label>
+                <select id="board-theme-select">
+                    <option value="noir_et_or" selected>Noir et Or</option>
+                    <option value="classic">Classic Light</option>
+                    <option value="dark">Dark Mode</option>
+                </select>
+            </div>
+            
             <div id="advanced-controls-container" class="panel">
-                <h2>Sound Control Panel</h2>
+                <h2>Musical Configuration</h2>
                 <div id="advanced-controls-panel">
                     </div>
             </div>
-
         </div>
 
         <div id="main-panel">
-
-            <div id="game-info-panel" class="panel">
-                </div>
-
-            <div id="goban-container">
+            <div id="goban-container" class="theme-noir_et_or">
                 <div id="wgo-player-display"></div>
             </div>
-
             <div id="controls">
-                <button id="prevBtn" disabled>&laquo; Prev</button>
                 <button id="playPauseBtn" disabled>Play</button>
-                <button id="nextBtn" disabled>Next &raquo;</button>
+                <button id="prevBtn" disabled>Previous</button>
+                <button id="nextBtn" disabled>Next</button>
                 <button id="resetBtn" disabled>Reset</button>
             </div>
-            
-            <div id="status-message"></div>
+            <div id="status-message">Upload an SGF file to begin.</div>
         </div>
 
         <div id="right-panel">
             <div id="analysis-panel" class="panel">
                 <h3>Move Analysis</h3>
-                <div id="analysisDiv">
-                    Upload an SGF file to begin.
-                </div>
+                <div id="analysisDiv"></div>
             </div>
             <div id="analysis-details-panel" class="panel">
                 <h3>Analysis Details</h3>
-                <div id="analysis-details">
-                    </div>
+                <div id="analysis-details"></div>
+            </div>
+            <div id="move-distribution-panel" class="panel">
+                <h3>Move Pattern Distribution</h3>
+                <div id="distribution-chart"></div>
             </div>
         </div>
-
     </div>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
     <script src="{{ url_for('static', filename='js/wgo.min.js') }}"></script>
     <script src="{{ url_for('static', filename='js/wgo.player.min.js') }}"></script>
-    <script src="https://unpkg.com/tone"></script>
     <script src="{{ url_for('static', filename='js/music_engine.js') }}"></script>
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>

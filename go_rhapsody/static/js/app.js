@@ -1,12 +1,71 @@
-let goBoard;
+// go_rhapsody/static/js/app.js
+
 let gameData = [];
 let wgoPlayer;
 let currentMoveIndex = -1;
 let playbackIntervalId = null;
-let playbackSpeed = 250;
+let playbackSpeed = 300;
 const gamma = .999;
+let currentSgfContent = '';
 
-// --- NEW: Detailed, Controllable Music Configuration ---
+// --- Board Theme Configurations ---
+const boardThemes = {
+    noir_et_or: {
+        // UPDATED: Lighter charcoal slate for better contrast
+        background: "#3a3a3a", 
+        lineColor: "rgba(190, 160, 100, 0.6)",
+        lineWidth: 1,
+        starColor: "rgba(190, 160, 100, 0.8)",
+        stone: {
+            type: function(ctx, x, y, r, stone) {
+                if (stone.c === WGo.B) {
+                    const grd = ctx.createRadialGradient(x - r * 0.4, y - r * 0.4, r * 0.1, x, y, r * 1.2);
+                    grd.addColorStop(0, "#4a4a4a");
+                    grd.addColorStop(1, "#010101");
+                    ctx.fillStyle = grd;
+                } else {
+                    const grd = ctx.createRadialGradient(x - r * 0.4, y - r * 0.4, r * 0.2, x, y, r);
+                    grd.addColorStop(0, "#ffffff");
+                    grd.addColorStop(1, "#e0e0e0");
+                    ctx.fillStyle = grd;
+                    ctx.shadowColor = 'rgba(0,0,0,0.3)';
+                    ctx.shadowBlur = 2;
+                    ctx.shadowOffsetX = 1;
+                    ctx.shadowOffsetY = 1;
+                }
+                ctx.beginPath();
+                ctx.arc(x, y, r, 0, 2 * Math.PI, true);
+                ctx.fill();
+                ctx.shadowColor = 'transparent';
+                ctx.shadowBlur = 0;
+                ctx.shadowOffsetX = 0;
+                ctx.shadowOffsetY = 0;
+            }
+        }
+    },
+    classic: {
+        background: "#e0ac69",
+        lineWidth: 1,
+        lineColor: "#4a4a4a",
+        starColor: "#4a4a4a",
+        stone: {
+            black: { shadow: 0, lineWidth: 0.5, strokeStyle: '#222' },
+            white: { shadow: 0, lineWidth: 0.5, strokeStyle: '#999' }
+        }
+    },
+    dark: {
+        background: "#2c3e50",
+        lineWidth: 1,
+        lineColor: "#b0b0b0",
+        starColor: "#b0b0b0",
+        stone: {
+            black: { shadow: 8, shadowColor: "rgba(0, 188, 212, 0.3)", lineWidth: 0 },
+            white: { shadow: 8, shadowColor: "rgba(255, 255, 255, 0.3)", lineWidth: 0 }
+        }
+    }
+};
+
+// --- Music Configuration ---
 const musicControls = {
     'Capture': { label: '💥 Capture', instrument: 'membraneSynth', note: 'C3', volume: -5, duration: '0.4s' },
     'Atari': { label: '❗ Atari', instrument: 'gentleSynth', note: 'tension_chord', volume: -6, duration: '8n' },
@@ -39,6 +98,10 @@ const statusMessageDiv = document.getElementById('status-message');
 const analysisDiv = document.getElementById('analysisDiv');
 const analysisDetailsDiv = document.getElementById('analysis-details');
 const advancedControlsPanel = document.getElementById('advanced-controls-panel');
+const distributionChartDiv = document.getElementById('distribution-chart');
+const boardThemeSelect = document.getElementById('board-theme-select');
+const gobanContainer = document.getElementById('goban-container');
+const wgoPlayerDisplay = document.getElementById('wgo-player-display');
 
 // --- Helper Functions ---
 function showStatus(message, type = 'info') {
@@ -55,12 +118,10 @@ function setPlayPauseButton(isPlaying) {
     playPauseBtn.textContent = isPlaying ? 'Pause' : 'Play';
 }
 
-// --- Advanced Control Panel Builder ---
 function setupAdvancedControls() {
     advancedControlsPanel.innerHTML = '';
     for (const key in musicControls) {
         const config = musicControls[key];
-
         const fieldset = document.createElement('fieldset');
         const legend = document.createElement('legend');
         legend.textContent = config.label;
@@ -71,7 +132,7 @@ function setupAdvancedControls() {
         const instrSelect = document.createElement('select');
         instrSelect.dataset.key = key;
         instrSelect.dataset.param = 'instrument';
-        ['marimbaSynth', 'gentleSynth', 'membraneSynth', 'dynamic'].forEach(instr => {
+        ['marimbaSynth', 'gentleSynth', 'membraneSynth', 'piano', 'kalimba', 'pluckSynth', 'dynamic'].forEach(instr => {
             if (config.instrument !== 'dynamic' && instr === 'dynamic') return;
             const option = document.createElement('option');
             option.value = instr;
@@ -82,39 +143,7 @@ function setupAdvancedControls() {
         fieldset.appendChild(instrLabel);
         fieldset.appendChild(instrSelect);
 
-        const volLabel = document.createElement('label');
-        volLabel.textContent = 'Volume (dB): ';
-        const volSlider = document.createElement('input');
-        volSlider.type = 'range';
-        volSlider.min = -40;
-        volSlider.max = 0;
-        volSlider.step = 1;
-        volSlider.value = config.volume;
-        volSlider.dataset.key = key;
-        volSlider.dataset.param = 'volume';
-        const volValueSpan = document.createElement('span');
-        volValueSpan.textContent = config.volume;
-        fieldset.appendChild(volLabel);
-        fieldset.appendChild(volSlider);
-        fieldset.appendChild(volValueSpan);
-
-        const durLabel = document.createElement('label');
-        durLabel.textContent = 'Duration: ';
-        const durInput = document.createElement('input');
-        durInput.type = 'text';
-        durInput.value = config.duration;
-        durInput.dataset.key = key;
-        durInput.dataset.param = 'duration';
-        fieldset.appendChild(durLabel);
-        fieldset.appendChild(durInput);
-
         instrSelect.addEventListener('change', handleControlChange);
-        volSlider.addEventListener('input', (e) => {
-            handleControlChange(e);
-            volValueSpan.textContent = e.target.value;
-        });
-        durInput.addEventListener('change', handleControlChange);
-
         advancedControlsPanel.appendChild(fieldset);
     }
 }
@@ -122,24 +151,37 @@ function setupAdvancedControls() {
 function handleControlChange(event) {
     const { key, param } = event.target.dataset;
     let value = event.target.value;
-
-    if (param === 'volume') {
-        value = parseFloat(value);
-    }
-
     if (musicControls[key]) {
         musicControls[key][param] = value;
     }
 }
 
-
-// --- Go Board and Playback Logic ---
-function setupWGoPlayer(sgfString) {
-    if (wgoPlayer) wgoPlayer.destroy();
-    wgoPlayer = new WGo.BasicPlayer(document.getElementById('wgo-player-display'), {
-        sgf: sgfString, enableMoving: false, enableWheel: false, enableKeys: false, showTools: false,
-        layout: {}
+function createWgoPlayer() {
+    if (!currentSgfContent) return;
+    const selectedTheme = boardThemeSelect.value;
+    const themeConfig = boardThemes[selectedTheme];
+    const lastMove = currentMoveIndex;
+    if (wgoPlayer) {
+        wgoPlayer.destroy();
+    }
+    wgoPlayerDisplay.innerHTML = '';
+    wgoPlayer = new WGo.BasicPlayer(wgoPlayerDisplay, {
+        sgf: currentSgfContent,
+        board: themeConfig,
+        layout: { top: [], right: [], left: [], bottom: [] },
+        showGameInfo: false,
+        showKomi: false,
+        showPlayerNames: false,
+        showTools: false,
+        showMoves: false,
+        enableKeys: false,
+        enableWheel: false,
+        enableMoving: false
     });
+    if (lastMove > 0) {
+        wgoPlayer.goTo(lastMove);
+    }
+    gobanContainer.className = `theme-${selectedTheme}`;
 }
 
 function displayMoveAnalysis(report) {
@@ -148,29 +190,22 @@ function displayMoveAnalysis(report) {
         analysisDetailsDiv.innerHTML = '';
         return;
     }
-
-    if (report.type === 'Pass') { 
+    if (report.type === 'Pass') {
         analysisDiv.innerHTML = `<strong>Move ${report.move_number} (${report.player}): Pass</strong>`;
         analysisDetailsDiv.innerHTML = '';
         return;
     }
-
     let analysisText = `<strong>Move ${report.move_number} (${report.player}): ${report.sgf_coords}</strong>`;
     analysisText += `<br><br><strong>Move Type:</strong><ul>`;
-    
     let moveKey = report.type;
     if (moveKey.includes('Enclosure') && moveKey !== 'Corner Enclosure') {
         moveKey = 'Large Enclosure';
     }
-    
     const label = musicControls[moveKey]?.label || `⚪ ${moveKey}`;
     const displayText = moveKey === 'Large Enclosure' ? `${label} (${report.type})` : label;
     analysisText += `<li>${displayText}</li>`;
-
     if (report.ko_detected) analysisText += `<li>⚖️ <strong>Ko:</strong> A ko fight may be starting.</li>`;
-    analysisText += `</ul>`;
-    
-    analysisText += `<strong>Metrics:</strong><ul>`;
+    analysisText += `</ul><strong>Metrics:</strong><ul>`;
     if (report.distance_from_center !== null) analysisText += `<li><strong>Center:</strong> ${report.distance_from_center.toFixed(2)}</li>`;
     if (report.distance_from_previous_friendly_stone !== null) analysisText += `<li><strong>From Previous Friendly:</strong> ${report.distance_from_previous_friendly_stone.toFixed(2)}</li>`;
     else analysisText += `<li><strong>From Previous Friendly:</strong> N/A (first move)</li>`;
@@ -178,9 +213,7 @@ function displayMoveAnalysis(report) {
     if (report.distance_to_nearest_enemy_stone !== null) analysisText += `<li><strong>To Nearest Enemy:</strong> ${report.distance_to_nearest_enemy_stone.toFixed(2)}</li>`;
     else analysisText += `<li><strong>To Nearest Enemy:</strong> N/A (no enemy stones)</li>`;
     analysisText += `</ul>`;
-
     analysisDiv.innerHTML = analysisText;
-
     let detailsText = '<strong>Detected Patterns:</strong><ul>';
     if (report.captures && report.captures.length > 0) detailsText += `<li>Captured ${report.captured_count} stone(s)</li>`;
     if (report.atari && report.atari.length > 0) detailsText += `<li>Atari on ${report.atari.length} group(s)</li>`;
@@ -194,7 +227,6 @@ function displayMoveAnalysis(report) {
     if (report.type === '3-4 Point') detailsText += `<li>Played on a 3-4 point</li>`;
     if (report.type === 'Corner Enclosure') detailsText += `<li>Makes a corner enclosure</li>`;
     if (report.ko_detected) detailsText += `<li>A ko is detected</li>`;
-
     if (detailsText === '<strong>Detected Patterns:</strong><ul>') {
         detailsText += '<li>None</li>';
     }
@@ -202,12 +234,44 @@ function displayMoveAnalysis(report) {
     analysisDetailsDiv.innerHTML = detailsText;
 }
 
+function displayMoveDistribution(data) {
+    distributionChartDiv.innerHTML = '';
+    const moveCounts = {};
+    data.forEach(report => {
+        if (report.type === 'Pass') return;
+        let moveKey = report.type;
+        if (moveKey.includes('Enclosure') && moveKey !== 'Corner Enclosure') {
+            moveKey = 'Large Enclosure';
+        }
+        moveCounts[moveKey] = (moveCounts[moveKey] || 0) + 1;
+    });
+    const totalMoves = data.filter(r => r.type !== 'Pass').length;
+    if (totalMoves === 0) return;
+    for (const moveKey in moveCounts) {
+        const count = moveCounts[moveKey];
+        const percentage = ((count / totalMoves) * 100).toFixed(1);
+        const label = musicControls[moveKey]?.label || moveKey;
+        const barContainer = document.createElement('div');
+        barContainer.className = 'bar-container';
+        const barLabel = document.createElement('div');
+        barLabel.className = 'bar-label';
+        barLabel.textContent = label;
+        const bar = document.createElement('div');
+        bar.className = 'bar';
+        bar.style.width = `${percentage}%`;
+        bar.textContent = `${count} (${percentage}%)`;
+        barContainer.appendChild(barLabel);
+        barContainer.appendChild(bar);
+        distributionChartDiv.appendChild(barContainer);
+    }
+}
+
 function playNextMoveWithWGo() {
     if (currentMoveIndex < gameData.length - 1) {
         currentMoveIndex++;
         const report = gameData[currentMoveIndex];
         displayMoveAnalysis(report);
-        wgoPlayer.next();
+        if(wgoPlayer) wgoPlayer.next();
         playbackSpeed = playbackSpeed * gamma;
         playbackIntervalId = setTimeout(playNextMoveWithWGo, playbackSpeed);
         playMusicalCue(report, musicControls);
@@ -221,7 +285,7 @@ function playNextMoveWithWGo() {
 function goToPrevMove() {
     pausePlayback();
     if (currentMoveIndex > 0) {
-        wgoPlayer.previous();
+        if(wgoPlayer) wgoPlayer.previous();
         currentMoveIndex--;
     }
     const report = gameData[currentMoveIndex];
@@ -233,9 +297,9 @@ function goToNextMove() {
     pausePlayback();
     if (currentMoveIndex < gameData.length - 1) {
         currentMoveIndex++;
+        if(wgoPlayer) wgoPlayer.next();
         const report = gameData[currentMoveIndex];
         displayMoveAnalysis(report);
-        wgoPlayer.next();
         playMusicalCue(report, musicControls);
     } else {
         showStatus("At the end of the game.", "info");
@@ -247,7 +311,7 @@ function stopPlayback() {
     pausePlayback();
     currentMoveIndex = -1;
     playbackSpeed = 250;
-    wgoPlayer.first();
+    if (wgoPlayer) wgoPlayer.first();
     setPlayPauseButton(false);
     displayMoveAnalysis(null);
     playMusicalCue({type: 'ResetGame'}, musicControls);
@@ -274,6 +338,7 @@ sgfUploadInput.addEventListener('change', async (event) => {
     if (!file) return;
     showStatus('Processing SGF...', 'info');
     enableControls(false);
+    distributionChartDiv.innerHTML = '';
     const formData = new FormData();
     formData.append('sgf_file', file);
     try {
@@ -285,9 +350,11 @@ sgfUploadInput.addEventListener('change', async (event) => {
             const analysisResult = await analysisResponse.json();
             if (analysisResponse.ok) {
                 gameData = analysisResult;
+                displayMoveDistribution(gameData);
                 const reader = new FileReader();
                 reader.onload = (e) => {
-                    setupWGoPlayer(e.target.result);
+                    currentSgfContent = e.target.result;
+                    createWgoPlayer(); 
                     enableControls(true);
                     stopPlayback();
                     showStatus('Ready. Press Play to start.', 'success');
@@ -305,6 +372,7 @@ sgfUploadInput.addEventListener('change', async (event) => {
     }
 });
 
+boardThemeSelect.addEventListener('change', createWgoPlayer);
 playPauseBtn.addEventListener('click', startPlayback);
 prevBtn.addEventListener('click', goToPrevMove);
 nextBtn.addEventListener('click', goToNextMove);
