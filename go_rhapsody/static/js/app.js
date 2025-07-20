@@ -1,12 +1,38 @@
-let goBoard;
+// go_rhapsody/static/js/app.js
+
 let gameData = [];
 let wgoPlayer;
 let currentMoveIndex = -1;
 let playbackIntervalId = null;
 let playbackSpeed = 300;
 const gamma = .999;
+let currentSgfContent = ''; // To store the SGF content for theme reloading
 
-// --- Detailed, Controllable Music Configuration ---
+// --- Board Theme Configurations (WITH STONE STYLES) ---
+const boardThemes = {
+    classic: {
+        background: "#e0ac69",
+        lineWidth: 1,
+        lineColor: "#4a4a4a",
+        starColor: "#4a4a4a",
+        stone: { // Flat, classic stones
+            black: { shadow: 0, lineWidth: 0.5, strokeStyle: '#222' },
+            white: { shadow: 0, lineWidth: 0.5, strokeStyle: '#999' }
+        }
+    },
+    dark: {
+        background: "#2c3e50",
+        lineWidth: 1,
+        lineColor: "#b0b0b0",
+        starColor: "#b0b0b0",
+        stone: { // Stones with a subtle glow for dark mode
+             black: { shadow: 8, shadowColor: "rgba(0, 188, 212, 0.3)", lineWidth: 0 },
+            white: { shadow: 8, shadowColor: "rgba(255, 255, 255, 0.3)", lineWidth: 0 }
+        }
+    }
+};
+
+// --- Music Configuration ---
 const musicControls = {
     'Capture': { label: '💥 Capture', instrument: 'membraneSynth', note: 'C3', volume: -5, duration: '0.4s' },
     'Atari': { label: '❗ Atari', instrument: 'gentleSynth', note: 'tension_chord', volume: -6, duration: '8n' },
@@ -40,7 +66,9 @@ const analysisDiv = document.getElementById('analysisDiv');
 const analysisDetailsDiv = document.getElementById('analysis-details');
 const advancedControlsPanel = document.getElementById('advanced-controls-panel');
 const distributionChartDiv = document.getElementById('distribution-chart');
-
+const boardThemeSelect = document.getElementById('board-theme-select');
+const gobanContainer = document.getElementById('goban-container');
+const wgoPlayerDisplay = document.getElementById('wgo-player-display');
 
 // --- Helper Functions ---
 function showStatus(message, type = 'info') {
@@ -57,122 +85,71 @@ function setPlayPauseButton(isPlaying) {
     playPauseBtn.textContent = isPlaying ? 'Pause' : 'Play';
 }
 
-// --- Advanced Control Panel Builder ---
-function setupAdvancedControls() {
-    advancedControlsPanel.innerHTML = '';
-    for (const key in musicControls) {
-        const config = musicControls[key];
+/**
+ * Creates or recreates the Go board player with a complete configuration.
+ */
+function createWgoPlayer() {
+    if (!currentSgfContent) return;
 
-        const fieldset = document.createElement('fieldset');
-        const legend = document.createElement('legend');
-        legend.textContent = config.label;
-        fieldset.appendChild(legend);
+    const selectedTheme = boardThemeSelect.value;
+    const themeConfig = boardThemes[selectedTheme];
+    const lastMove = currentMoveIndex;
 
-        const instrLabel = document.createElement('label');
-        instrLabel.textContent = 'Instrument: ';
-        const instrSelect = document.createElement('select');
-        instrSelect.dataset.key = key;
-        instrSelect.dataset.param = 'instrument';
-        ['marimbaSynth', 'gentleSynth', 'membraneSynth', 'piano', 'kalimba', 'pluckSynth', 'dynamic'].forEach(instr => {
-            if (config.instrument !== 'dynamic' && instr === 'dynamic') return;
-            const option = document.createElement('option');
-            option.value = instr;
-            option.textContent = instr.replace('Synth', '');
-            if (config.instrument === instr) option.selected = true;
-            instrSelect.appendChild(option);
-        });
-        fieldset.appendChild(instrLabel);
-        fieldset.appendChild(instrSelect);
-
-        const volLabel = document.createElement('label');
-        volLabel.textContent = 'Volume (dB): ';
-        const volSlider = document.createElement('input');
-        volSlider.type = 'range';
-        volSlider.min = -40;
-        volSlider.max = 0;
-        volSlider.step = 1;
-        volSlider.value = config.volume;
-        volSlider.dataset.key = key;
-        volSlider.dataset.param = 'volume';
-        const volValueSpan = document.createElement('span');
-        volValueSpan.textContent = config.volume;
-        fieldset.appendChild(volLabel);
-        fieldset.appendChild(volSlider);
-        fieldset.appendChild(volValueSpan);
-
-        const durLabel = document.createElement('label');
-        durLabel.textContent = 'Duration: ';
-        const durInput = document.createElement('input');
-        durInput.type = 'text';
-        durInput.value = config.duration;
-        durInput.dataset.key = key;
-        durInput.dataset.param = 'duration';
-        fieldset.appendChild(durLabel);
-        fieldset.appendChild(durInput);
-
-        instrSelect.addEventListener('change', handleControlChange);
-        volSlider.addEventListener('input', (e) => {
-            handleControlChange(e);
-            volValueSpan.textContent = e.target.value;
-        });
-        durInput.addEventListener('change', handleControlChange);
-
-        advancedControlsPanel.appendChild(fieldset);
+    if (wgoPlayer) {
+        wgoPlayer.destroy();
     }
-}
+    wgoPlayerDisplay.innerHTML = '';
 
-function handleControlChange(event) {
-    const { key, param } = event.target.dataset;
-    let value = event.target.value;
+    // Create the new player with a complete configuration object
+    wgoPlayer = new WGo.BasicPlayer(wgoPlayerDisplay, {
+        sgf: currentSgfContent,
+        board: themeConfig, // Applies background, lines, AND stone styles
+        
+        // Options to hide all native WGo.js UI elements
+        layout: { 
+            top: [], right: [], left: [], bottom: [],
+        },
+        showGameInfo: false,
+        showKomi: false,
+        showPlayerNames: false,
+        showTools: false,
+        showMoves: false,
+        enableKeys: false,
+        enableWheel: false,
+        enableMoving: false
+    });
 
-    if (param === 'volume') {
-        value = parseFloat(value);
+    if (lastMove > 0) {
+        wgoPlayer.goTo(lastMove);
     }
-
-    if (musicControls[key]) {
-        musicControls[key][param] = value;
-    }
+    
+    gobanContainer.className = `theme-${selectedTheme}`;
 }
 
 
 // --- Go Board and Playback Logic ---
-function setupWGoPlayer(sgfString) {
-    if (wgoPlayer) wgoPlayer.destroy();
-    wgoPlayer = new WGo.BasicPlayer(document.getElementById('wgo-player-display'), {
-        sgf: sgfString, enableMoving: false, enableWheel: false, enableKeys: false, showTools: false,
-        layout: {}
-    });
-}
-
 function displayMoveAnalysis(report) {
     if (!report) {
         analysisDiv.innerHTML = 'Upload an SGF file to begin.';
         analysisDetailsDiv.innerHTML = '';
         return;
     }
-
     if (report.type === 'Pass') { 
         analysisDiv.innerHTML = `<strong>Move ${report.move_number} (${report.player}): Pass</strong>`;
         analysisDetailsDiv.innerHTML = '';
         return;
     }
-
     let analysisText = `<strong>Move ${report.move_number} (${report.player}): ${report.sgf_coords}</strong>`;
     analysisText += `<br><br><strong>Move Type:</strong><ul>`;
-    
     let moveKey = report.type;
     if (moveKey.includes('Enclosure') && moveKey !== 'Corner Enclosure') {
         moveKey = 'Large Enclosure';
     }
-    
     const label = musicControls[moveKey]?.label || `⚪ ${moveKey}`;
     const displayText = moveKey === 'Large Enclosure' ? `${label} (${report.type})` : label;
     analysisText += `<li>${displayText}</li>`;
-
     if (report.ko_detected) analysisText += `<li>⚖️ <strong>Ko:</strong> A ko fight may be starting.</li>`;
-    analysisText += `</ul>`;
-    
-    analysisText += `<strong>Metrics:</strong><ul>`;
+    analysisText += `</ul><strong>Metrics:</strong><ul>`;
     if (report.distance_from_center !== null) analysisText += `<li><strong>Center:</strong> ${report.distance_from_center.toFixed(2)}</li>`;
     if (report.distance_from_previous_friendly_stone !== null) analysisText += `<li><strong>From Previous Friendly:</strong> ${report.distance_from_previous_friendly_stone.toFixed(2)}</li>`;
     else analysisText += `<li><strong>From Previous Friendly:</strong> N/A (first move)</li>`;
@@ -180,9 +157,7 @@ function displayMoveAnalysis(report) {
     if (report.distance_to_nearest_enemy_stone !== null) analysisText += `<li><strong>To Nearest Enemy:</strong> ${report.distance_to_nearest_enemy_stone.toFixed(2)}</li>`;
     else analysisText += `<li><strong>To Nearest Enemy:</strong> N/A (no enemy stones)</li>`;
     analysisText += `</ul>`;
-
     analysisDiv.innerHTML = analysisText;
-
     let detailsText = '<strong>Detected Patterns:</strong><ul>';
     if (report.captures && report.captures.length > 0) detailsText += `<li>Captured ${report.captured_count} stone(s)</li>`;
     if (report.atari && report.atari.length > 0) detailsText += `<li>Atari on ${report.atari.length} group(s)</li>`;
@@ -196,7 +171,6 @@ function displayMoveAnalysis(report) {
     if (report.type === '3-4 Point') detailsText += `<li>Played on a 3-4 point</li>`;
     if (report.type === 'Corner Enclosure') detailsText += `<li>Makes a corner enclosure</li>`;
     if (report.ko_detected) detailsText += `<li>A ko is detected</li>`;
-
     if (detailsText === '<strong>Detected Patterns:</strong><ul>') {
         detailsText += '<li>None</li>';
     }
@@ -205,41 +179,31 @@ function displayMoveAnalysis(report) {
 }
 
 function displayMoveDistribution(data) {
-    distributionChartDiv.innerHTML = ''; // Clear previous chart
+    distributionChartDiv.innerHTML = '';
     const moveCounts = {};
-
-    // Count occurrences of each move type
     data.forEach(report => {
-        if (report.type === 'Pass') return; // Don't include passes in distribution
+        if (report.type === 'Pass') return;
         let moveKey = report.type;
-        // Consolidate enclosure types for cleaner analysis
         if (moveKey.includes('Enclosure') && moveKey !== 'Corner Enclosure') {
             moveKey = 'Large Enclosure';
         }
         moveCounts[moveKey] = (moveCounts[moveKey] || 0) + 1;
     });
-
     const totalMoves = data.filter(r => r.type !== 'Pass').length;
     if (totalMoves === 0) return;
-
-    // Create and display the bar chart elements
     for (const moveKey in moveCounts) {
         const count = moveCounts[moveKey];
         const percentage = ((count / totalMoves) * 100).toFixed(1);
         const label = musicControls[moveKey]?.label || moveKey;
-
         const barContainer = document.createElement('div');
         barContainer.className = 'bar-container';
-
         const barLabel = document.createElement('div');
         barLabel.className = 'bar-label';
         barLabel.textContent = label;
-        
         const bar = document.createElement('div');
         bar.className = 'bar';
         bar.style.width = `${percentage}%`;
-        bar.textContent = `${percentage}%`;
-
+        bar.textContent = `${count} (${percentage}%)`;
         barContainer.appendChild(barLabel);
         barContainer.appendChild(bar);
         distributionChartDiv.appendChild(barContainer);
@@ -251,7 +215,7 @@ function playNextMoveWithWGo() {
         currentMoveIndex++;
         const report = gameData[currentMoveIndex];
         displayMoveAnalysis(report);
-        wgoPlayer.next();
+        if(wgoPlayer) wgoPlayer.next();
         playbackSpeed = playbackSpeed * gamma;
         playbackIntervalId = setTimeout(playNextMoveWithWGo, playbackSpeed);
         playMusicalCue(report, musicControls);
@@ -265,7 +229,7 @@ function playNextMoveWithWGo() {
 function goToPrevMove() {
     pausePlayback();
     if (currentMoveIndex > 0) {
-        wgoPlayer.previous();
+        if(wgoPlayer) wgoPlayer.previous();
         currentMoveIndex--;
     }
     const report = gameData[currentMoveIndex];
@@ -277,9 +241,9 @@ function goToNextMove() {
     pausePlayback();
     if (currentMoveIndex < gameData.length - 1) {
         currentMoveIndex++;
+        if(wgoPlayer) wgoPlayer.next();
         const report = gameData[currentMoveIndex];
         displayMoveAnalysis(report);
-        wgoPlayer.next();
         playMusicalCue(report, musicControls);
     } else {
         showStatus("At the end of the game.", "info");
@@ -318,7 +282,7 @@ sgfUploadInput.addEventListener('change', async (event) => {
     if (!file) return;
     showStatus('Processing SGF...', 'info');
     enableControls(false);
-    distributionChartDiv.innerHTML = ''; // Clear previous chart
+    distributionChartDiv.innerHTML = '';
     const formData = new FormData();
     formData.append('sgf_file', file);
     try {
@@ -330,15 +294,14 @@ sgfUploadInput.addEventListener('change', async (event) => {
             const analysisResult = await analysisResponse.json();
             if (analysisResponse.ok) {
                 gameData = analysisResult;
-                displayMoveDistribution(gameData); // <<<--- ADDED THIS LINE
+                displayMoveDistribution(gameData);
                 const reader = new FileReader();
                 reader.onload = (e) => {
-                    setupWGoPlayer(e.target.result);
-                    if (wgoPlayer) {
-                        enableControls(true);
-                        stopPlayback();
-                        showStatus('Ready. Press Play to start.', 'success');
-                    }
+                    currentSgfContent = e.target.result;
+                    createWgoPlayer(); 
+                    enableControls(true);
+                    stopPlayback();
+                    showStatus('Ready. Press Play to start.', 'success');
                 };
                 reader.readAsText(file);
             } else {
@@ -347,18 +310,18 @@ sgfUploadInput.addEventListener('change', async (event) => {
         } else {
             showStatus(`Upload Failed: ${result.error}`, "error");
         }
-    } catch (error) {
+    } catch (error) { // <-- The typo is fixed here
         showStatus(`Network Error: ${error.message}`, "error");
         enableControls(false);
     }
 });
 
+boardThemeSelect.addEventListener('change', createWgoPlayer);
 playPauseBtn.addEventListener('click', startPlayback);
 prevBtn.addEventListener('click', goToPrevMove);
 nextBtn.addEventListener('click', goToNextMove);
 resetBtn.addEventListener('click', stopPlayback);
 
 document.addEventListener('DOMContentLoaded', () => {
-    setupAdvancedControls();
     enableControls(false);
 });
