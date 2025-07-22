@@ -49,6 +49,40 @@ const instruments = {
         release: 1,
         volume: -6
     }).toDestination(),
+    // --- NEW INSTRUMENTS ---
+    fmSynth: new Tone.FMSynth({
+        harmonicity: 3,
+        modulationIndex: 10,
+        envelope: { attack: 0.01, decay: 0.2, sustain: 0.3, release: 1 },
+        modulation: { type: 'square' },
+        volume: -8
+    }).toDestination(),
+    duoSynth: new Tone.DuoSynth({
+        harmonicity: 1.5,
+        voice0: { oscillator: { type: 'sawtooth' }, envelope: { attack: 0.01, decay: 0.1, sustain: 0.5, release: 1 } },
+        voice1: { oscillator: { type: 'triangle' }, envelope: { attack: 0.01, decay: 0.1, sustain: 0.5, release: 1 } },
+        volume: -10
+    }).toDestination(),
+    amSynth: new Tone.AMSynth({
+        harmonicity: 2.5,
+        envelope: { attack: 0.01, decay: 0.2, sustain: 0.3, release: 1 },
+        modulation: { type: 'triangle' },
+        volume: -8
+    }).toDestination(),
+    monoSynth: new Tone.MonoSynth({
+        oscillator: { type: 'square' },
+        envelope: { attack: 0.01, decay: 0.3, sustain: 0.2, release: 1 },
+        filterEnvelope: { attack: 0.001, decay: 0.2, sustain: 0.5, release: 2, baseFrequency: 200, octaves: 2.6 },
+        volume: -7
+    }).toDestination(),
+    metalSynth: new Tone.MetalSynth({
+        frequency: 200,
+        envelope: { attack: 0.001, decay: 1.4, release: 0.2 },
+        harmonicity: 5.1,
+        modulationIndex: 32,
+        resonance: 4000,
+        volume: -12
+    }).toDestination(),
 };
 
 
