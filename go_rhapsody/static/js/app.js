@@ -113,24 +113,24 @@ const musicPresets = {
     },
     electronic: {
         'Capture': 'membraneSynth',
-        'Atari': 'amSynth',
-        'Cut': 'fmSynth',
-        'Connection': 'duoSynth',
-        'Atari Threat': 'metalSynth',
-        'Star Point': 'amSynth',
-        '3-3 Point': 'fmSynth',
-        '3-4 Point': 'duoSynth',
-        'Corner Play': 'metalSynth',
-        'Small Knight': 'amSynth',
+        'Atari': 'fmSynth',
+        'Cut': 'membraneSynth',
+        'Connection': 'amSynth',
+        'Atari Threat': 'fmSynth',
+        'Star Point': 'duoSynth',
+        '3-3 Point': 'membraneSynth',
+        '3-4 Point': 'amSynth',
+        'Corner Play': 'duoSynth',
+        'Small Knight': 'membraneSynth',
         'Large Knight': 'fmSynth',
-        'One-Space Jump': 'duoSynth',
-        'Two-Space Jump': 'metalSynth',
-        'First Corner Play': 'amSynth',
-        'Corner Enclosure': 'fmSynth',
-        'Large Enclosure': 'duoSynth',
-        'Contact Move': 'metalSynth',
-        'Normal Move': 'amSynth',
-        'FinishedGame': 'metalSynth',
+        'One-Space Jump': 'amSynth',
+        'Two-Space Jump': 'duoSynth',
+        'First Corner Play': 'membraneSynth',
+        'Corner Enclosure': 'amSynth',
+        'Large Enclosure': 'fmSynth',
+        'Contact Move': 'duoSynth',
+        'Normal Move': 'membraneSynth',
+        'FinishedGame': 'fmSynth',
     },
     piano: {
         'Capture': 'piano',
@@ -175,25 +175,25 @@ const musicPresets = {
         'FinishedGame': 'kalimba',
     },
     fun: {
-        'Capture': 'bell',
+        'Capture': 'pluckSynth',
         'Atari': 'kalimba',
-        'Cut': 'clap',
+        'Cut': 'metalSynth',
         'Connection': 'piano',
         'Atari Threat': 'gentleSynth',
         'Star Point': 'marimbaSynth',
         '3-3 Point': 'pluckSynth',
-        '3-4 Point': 'chime',
-        'Corner Play': 'piano',
+        '3-4 Point': 'kalimba',
+        'Corner Play': 'duoSynth',
         'Small Knight': 'pluckSynth',
-        'Large Knight': 'kalimba',
+        'Large Knight': 'monoSynth',
         'One-Space Jump': 'marimbaSynth',
-        'Two-Space Jump': 'membraneSynth',
+        'Two-Space Jump': 'metalSynth',
         'First Corner Play': 'kalimba',
-        'Corner Enclosure': 'marimbaSynth',
-        'Large Enclosure': 'chime',
-        'Contact Move': 'clap',
+        'Corner Enclosure': 'amSynth',
+        'Large Enclosure': 'fmSynth',
+        'Contact Move': 'pluckSynth',
         'Normal Move': 'dynamic',
-        'FinishedGame': 'bell',
+        'FinishedGame': 'gentleSynth',
     },
 };
 
@@ -261,17 +261,13 @@ function setupAdvancedControls() {
         instrSelect.dataset.key = key;
         instrSelect.dataset.param = 'instrument';
         [
-            'marimbaSynth', 'gentleSynth', 'membraneSynth', 'piano', 'kalimba', 'pluckSynth', 'dynamic',
-            'amSynth', 'fmSynth', 'duoSynth', 'metalSynth',
-            'bell', 'clap', 'chime'
+            'marimbaSynth', 'gentleSynth', 'membraneSynth', 'piano', 'kalimba', 'pluckSynth',
+            'fmSynth', 'duoSynth', 'amSynth', 'monoSynth', 'metalSynth', 'dynamic'
         ].forEach(instr => {
             if (config.instrument !== 'dynamic' && instr === 'dynamic') return;
             const option = document.createElement('option');
             option.value = instr;
-            option.textContent = instr.replace('Synth', '').replace(/^[a-z]/, c => c.toUpperCase());
-            if (instr === 'bell') option.textContent = 'Bell (Sample)';
-            if (instr === 'clap') option.textContent = 'Clap (Sample)';
-            if (instr === 'chime') option.textContent = 'Chime (Sample)';
+            option.textContent = instr.replace('Synth', '').replace('Synth', '').replace('am', 'AM').replace('fm', 'FM').replace('duo', 'Duo').replace('mono', 'Mono').replace('metal', 'Metal');
             if (config.instrument === instr) option.selected = true;
             instrSelect.appendChild(option);
         });
