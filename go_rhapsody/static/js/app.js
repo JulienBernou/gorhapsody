@@ -88,6 +88,127 @@ const musicControls = {
     'FinishedGame': { label: '🏁 Game Finished', instrument: 'gentleSynth', note: 'C5', volume: -8, duration: '1n' },
 };
 
+// --- Preset Definitions ---
+const musicPresets = {
+    classic: {
+        'Capture': 'marimbaSynth',
+        'Atari': 'gentleSynth',
+        'Cut': 'marimbaSynth',
+        'Connection': 'marimbaSynth',
+        'Atari Threat': 'gentleSynth',
+        'Star Point': 'marimbaSynth',
+        '3-3 Point': 'gentleSynth',
+        '3-4 Point': 'marimbaSynth',
+        'Corner Play': 'gentleSynth',
+        'Small Knight': 'marimbaSynth',
+        'Large Knight': 'marimbaSynth',
+        'One-Space Jump': 'marimbaSynth',
+        'Two-Space Jump': 'marimbaSynth',
+        'First Corner Play': 'gentleSynth',
+        'Corner Enclosure': 'marimbaSynth',
+        'Large Enclosure': 'marimbaSynth',
+        'Contact Move': 'gentleSynth',
+        'Normal Move': 'marimbaSynth',
+        'FinishedGame': 'gentleSynth',
+    },
+    electronic: {
+        'Capture': 'membraneSynth',
+        'Atari': 'amSynth',
+        'Cut': 'fmSynth',
+        'Connection': 'duoSynth',
+        'Atari Threat': 'metalSynth',
+        'Star Point': 'amSynth',
+        '3-3 Point': 'fmSynth',
+        '3-4 Point': 'duoSynth',
+        'Corner Play': 'metalSynth',
+        'Small Knight': 'amSynth',
+        'Large Knight': 'fmSynth',
+        'One-Space Jump': 'duoSynth',
+        'Two-Space Jump': 'metalSynth',
+        'First Corner Play': 'amSynth',
+        'Corner Enclosure': 'fmSynth',
+        'Large Enclosure': 'duoSynth',
+        'Contact Move': 'metalSynth',
+        'Normal Move': 'amSynth',
+        'FinishedGame': 'metalSynth',
+    },
+    piano: {
+        'Capture': 'piano',
+        'Atari': 'piano',
+        'Cut': 'piano',
+        'Connection': 'piano',
+        'Atari Threat': 'piano',
+        'Star Point': 'piano',
+        '3-3 Point': 'piano',
+        '3-4 Point': 'piano',
+        'Corner Play': 'piano',
+        'Small Knight': 'piano',
+        'Large Knight': 'piano',
+        'One-Space Jump': 'piano',
+        'Two-Space Jump': 'piano',
+        'First Corner Play': 'piano',
+        'Corner Enclosure': 'piano',
+        'Large Enclosure': 'piano',
+        'Contact Move': 'piano',
+        'Normal Move': 'piano',
+        'FinishedGame': 'piano',
+    },
+    kalimba: {
+        'Capture': 'kalimba',
+        'Atari': 'kalimba',
+        'Cut': 'kalimba',
+        'Connection': 'kalimba',
+        'Atari Threat': 'kalimba',
+        'Star Point': 'kalimba',
+        '3-3 Point': 'kalimba',
+        '3-4 Point': 'kalimba',
+        'Corner Play': 'kalimba',
+        'Small Knight': 'kalimba',
+        'Large Knight': 'kalimba',
+        'One-Space Jump': 'kalimba',
+        'Two-Space Jump': 'kalimba',
+        'First Corner Play': 'kalimba',
+        'Corner Enclosure': 'kalimba',
+        'Large Enclosure': 'kalimba',
+        'Contact Move': 'kalimba',
+        'Normal Move': 'kalimba',
+        'FinishedGame': 'kalimba',
+    },
+    fun: {
+        'Capture': 'bell',
+        'Atari': 'kalimba',
+        'Cut': 'clap',
+        'Connection': 'piano',
+        'Atari Threat': 'gentleSynth',
+        'Star Point': 'marimbaSynth',
+        '3-3 Point': 'pluckSynth',
+        '3-4 Point': 'chime',
+        'Corner Play': 'piano',
+        'Small Knight': 'pluckSynth',
+        'Large Knight': 'kalimba',
+        'One-Space Jump': 'marimbaSynth',
+        'Two-Space Jump': 'membraneSynth',
+        'First Corner Play': 'kalimba',
+        'Corner Enclosure': 'marimbaSynth',
+        'Large Enclosure': 'chime',
+        'Contact Move': 'clap',
+        'Normal Move': 'dynamic',
+        'FinishedGame': 'bell',
+    },
+};
+
+function applyMusicPreset(presetKey) {
+    const preset = musicPresets[presetKey];
+    if (!preset) return;
+    for (const key in musicControls) {
+        if (preset[key]) {
+            musicControls[key].instrument = preset[key];
+        }
+    }
+    // Re-render advanced controls to update selects
+    setupAdvancedControls();
+}
+
 // DOM elements
 const sgfUploadInput = document.getElementById('sgfUpload');
 const playPauseBtn = document.getElementById('playPauseBtn');
@@ -102,6 +223,13 @@ const distributionChartDiv = document.getElementById('distribution-chart');
 const boardThemeSelect = document.getElementById('board-theme-select');
 const gobanContainer = document.getElementById('goban-container');
 const wgoPlayerDisplay = document.getElementById('wgo-player-display');
+// --- New: Playback controls ---
+const playbackSpeedRange = document.getElementById('playbackSpeedRange');
+const playbackSpeedNumber = document.getElementById('playbackSpeedNumber');
+const gammaRange = document.getElementById('gammaRange');
+const gammaNumber = document.getElementById('gammaNumber');
+// --- New: Presets ---
+const musicPresetsSelect = document.getElementById('music-presets-select');
 
 // --- Helper Functions ---
 function showStatus(message, type = 'info') {
@@ -132,11 +260,18 @@ function setupAdvancedControls() {
         const instrSelect = document.createElement('select');
         instrSelect.dataset.key = key;
         instrSelect.dataset.param = 'instrument';
-        ['marimbaSynth', 'gentleSynth', 'membraneSynth', 'piano', 'kalimba', 'pluckSynth', 'dynamic'].forEach(instr => {
+        [
+            'marimbaSynth', 'gentleSynth', 'membraneSynth', 'piano', 'kalimba', 'pluckSynth', 'dynamic',
+            'amSynth', 'fmSynth', 'duoSynth', 'metalSynth',
+            'bell', 'clap', 'chime'
+        ].forEach(instr => {
             if (config.instrument !== 'dynamic' && instr === 'dynamic') return;
             const option = document.createElement('option');
             option.value = instr;
-            option.textContent = instr.replace('Synth', '');
+            option.textContent = instr.replace('Synth', '').replace(/^[a-z]/, c => c.toUpperCase());
+            if (instr === 'bell') option.textContent = 'Bell (Sample)';
+            if (instr === 'clap') option.textContent = 'Clap (Sample)';
+            if (instr === 'chime') option.textContent = 'Chime (Sample)';
             if (config.instrument === instr) option.selected = true;
             instrSelect.appendChild(option);
         });
@@ -378,7 +513,49 @@ prevBtn.addEventListener('click', goToPrevMove);
 nextBtn.addEventListener('click', goToNextMove);
 resetBtn.addEventListener('click', stopPlayback);
 
+// --- New: Playback & Gamma Controls Sync ---
+function syncPlaybackSpeedInputs(value) {
+    playbackSpeedRange.value = value;
+    playbackSpeedNumber.value = value;
+    playbackSpeed = parseInt(value);
+}
+function syncGammaInputs(value) {
+    gammaRange.value = value;
+    gammaNumber.value = value;
+    gamma = parseFloat(value);
+}
+if (playbackSpeedRange && playbackSpeedNumber) {
+    playbackSpeedRange.addEventListener('input', (e) => {
+        syncPlaybackSpeedInputs(e.target.value);
+    });
+    playbackSpeedNumber.addEventListener('input', (e) => {
+        syncPlaybackSpeedInputs(e.target.value);
+    });
+}
+if (gammaRange && gammaNumber) {
+    gammaRange.addEventListener('input', (e) => {
+        syncGammaInputs(e.target.value);
+    });
+    gammaNumber.addEventListener('input', (e) => {
+        syncGammaInputs(e.target.value);
+    });
+}
+
+// --- New: Presets ---
+if (musicPresetsSelect) {
+    musicPresetsSelect.addEventListener('change', (e) => {
+        applyMusicPreset(e.target.value);
+    });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     setupAdvancedControls();
     enableControls(false);
+    // Initialize playback controls to match variables
+    if (playbackSpeedRange && playbackSpeedNumber) {
+        syncPlaybackSpeedInputs(playbackSpeed);
+    }
+    if (gammaRange && gammaNumber) {
+        syncGammaInputs(gamma);
+    }
 });

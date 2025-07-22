@@ -78,6 +78,30 @@ h2, h3 {
     box-shadow: 0 6px 20px rgba(0,0,0,0.2);
 }
 
+/* --- Playback Controls Panel --- */
+#playback-controls-panel label {
+    display: inline-block;
+    width: 160px;
+    font-weight: 500;
+    margin-bottom: 4px;
+    color: var(--text-muted-color);
+}
+#playback-controls-panel input[type="range"] {
+    width: 120px;
+    vertical-align: middle;
+    margin-right: 6px;
+}
+#playback-controls-panel input[type="number"] {
+    width: 70px;
+    vertical-align: middle;
+}
+#playback-controls-panel {
+    margin-bottom: 10px;
+}
+#playback-controls-panel br {
+    margin-bottom: 10px;
+}
+
 /* --- SGF Uploader & Controls --- */
 #sgf-upload-section label, #advanced-controls-panel legend {
     font-weight: 600;

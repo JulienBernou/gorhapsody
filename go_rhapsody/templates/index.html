@@ -27,9 +27,28 @@
                     <option value="dark">Dark Mode</option>
                 </select>
             </div>
+
+            <div id="playback-controls-panel" class="panel">
+                <h3>Playback Controls</h3>
+                <label for="playbackSpeedRange">Playback Speed (ms):</label>
+                <input type="range" id="playbackSpeedRange" min="50" max="2000" step="10" value="300">
+                <input type="number" id="playbackSpeedNumber" min="50" max="2000" step="10" value="300" style="width: 70px; margin-left: 10px;">
+                <br><br>
+                <label for="gammaRange">Gamma (decay):</label>
+                <input type="range" id="gammaRange" min="0.90" max="1.00" step="0.001" value="0.999">
+                <input type="number" id="gammaNumber" min="0.90" max="1.00" step="0.001" value="0.999" style="width: 70px; margin-left: 10px;">
+            </div>
             
             <div id="advanced-controls-container" class="panel">
                 <h2>Musical Configuration</h2>
+                <label for="music-presets-select">Presets:</label>
+                <select id="music-presets-select">
+                    <option value="classic">Classic Marimba</option>
+                    <option value="electronic">Electronic</option>
+                    <option value="piano">Piano</option>
+                    <option value="kalimba">Kalimba</option>
+                    <option value="fun">Fun/Random</option>
+                </select>
                 <div id="advanced-controls-panel">
                     </div>
             </div>
