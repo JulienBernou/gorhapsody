@@ -48,6 +48,7 @@ class GameAnalyzer:
             report['atari'] = self.is_atari(x, y, player)
             report['atari_threats'] = self.detect_atari_threat(x, y, player)
             report['ko_detected'] = self.detect_ko(x, y, player)
+            report['is_hane'] = self.is_hane_move(x, y, player, board_before_move)
             report['is_contact'] = self.is_contact_move(x, y, player, board_before_move)
             report['is_cut'] = self.is_cut_move(x, y, player, board_before_move)
             report['is_connection'] = self.is_connection_move(x, y, player, board_before_move)
@@ -99,6 +100,41 @@ class GameAnalyzer:
             # Check if the placed stone is next to an opponent stone from the "before" state.
             if board_state_before[ny][nx] == opponent:
                 return True
+        return False
+
+    def is_hane_move(self, x, y, player, board_state_before):
+        """
+        Heuristic hane detector: A hane often forms when your new stone at (x,y)
+        is adjacent to an opponent stone, and there is a friendly stone adjacent
+        to that same opponent in a perpendicular direction (forming an elbow around it).
+
+        We evaluate on the board state before the move, so only the opponent and
+        other friendly stones are considered; (x,y) is currently empty in that view.
+        """
+        opponent = 3 - player
+        size = self.board_size
+        # Orthogonal directions
+        dirs = [(1,0), (-1,0), (0,1), (0,-1)]
+        for dx, dy in dirs:
+            ox, oy = x + dx, y + dy
+            if not (0 <= ox < size and 0 <= oy < size):
+                continue
+            # Must be an opponent neighbor before the move
+            if board_state_before[oy][ox] != opponent:
+                continue
+            # Direction from opponent to our move
+            vx, vy = x - ox, y - oy
+            # Check perpendicular directions around the opponent
+            perp_candidates = []
+            if vx != 0:  # our move is horizontal from opponent; check vertical adjacents
+                perp_candidates = [(0,1), (0,-1)]
+            elif vy != 0:  # vertical; check horizontals
+                perp_candidates = [(1,0), (-1,0)]
+            for px, py in perp_candidates:
+                fx, fy = ox + px, oy + py
+                if 0 <= fx < size and 0 <= fy < size:
+                    if board_state_before[fy][fx] == player:
+                        return True
         return False
 
     def is_cut_move(self, x, y, player, board_before_move):
@@ -201,6 +237,9 @@ class GameAnalyzer:
             return 'Connection', details
         if report.get('atari_threats'):
             return 'Atari Threat', details
+        # Hane should have priority over generic contact
+        if report.get('is_hane'):
+            return 'Hane', details
         if report.get('is_contact'):
             return 'Contact Move', details
 

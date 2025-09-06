@@ -26,15 +26,18 @@
                     <option value="classic">Classic Light</option>
                     <option value="dark">Dark Mode</option>
                 </select>
+                <br><br>
+                <label for="board-darkness-range">Board Darkness:</label>
+                <input type="range" id="board-darkness-range" min="0" max="80" step="1" value="0">
             </div>
 
             <div id="playback-controls-panel" class="panel">
                 <h3>Playback Controls</h3>
-                <label for="playbackSpeedRange">Playback Speed (ms):</label>
+                <label for="playbackSpeedRange">Initial time per move (ms):</label>
                 <input type="range" id="playbackSpeedRange" min="50" max="2000" step="10" value="300">
                 <input type="number" id="playbackSpeedNumber" min="50" max="2000" step="10" value="300" style="width: 70px; margin-left: 10px;">
                 <br><br>
-                <label for="gammaRange">Gamma (decay):</label>
+                <label for="gammaRange">Acceleration (decay):</label>
                 <input type="range" id="gammaRange" min="0.90" max="1.00" step="0.001" value="0.999">
                 <input type="number" id="gammaNumber" min="0.90" max="1.00" step="0.001" value="0.999" style="width: 70px; margin-left: 10px;">
             </div>
@@ -48,9 +51,33 @@
                     <option value="piano">Piano</option>
                     <option value="kalimba">Kalimba</option>
                     <option value="fun">Fun/Random</option>
+                    <option value="liszt">Liszt (Romantic Piano)</option>
                 </select>
-                <div id="advanced-controls-panel">
-                    </div>
+                <br><br>
+                <label for="music-scale-select">Scale:</label>
+                <select id="music-scale-select">
+                    <option value="zen" selected>Zen (current)</option>
+                    <option value="major">Major</option>
+                    <option value="minor_pentatonic">Minor Pentatonic</option>
+                    <option value="natural_minor">Natural Minor</option>
+                    <option value="dorian">Dorian</option>
+                    <option value="mixolydian">Mixolydian</option>
+                    <option value="harmonic_minor">Harmonic Minor</option>
+                    <option value="whole_tone">Whole Tone</option>
+                </select>
+                <br><br>
+                <div class="tabs">
+                    <button class="tab-button active" data-tab="tab-contact">Contact</button>
+                    <button class="tab-button" data-tab="tab-threats">Threats</button>
+                    <button class="tab-button" data-tab="tab-development">Development</button>
+                    <button class="tab-button" data-tab="tab-other">Other</button>
+                </div>
+                <div class="tab-content">
+                    <div id="tab-contact" class="tab-pane active"><div id="advanced-controls-panel-contact"></div></div>
+                    <div id="tab-threats" class="tab-pane"><div id="advanced-controls-panel-threats"></div></div>
+                    <div id="tab-development" class="tab-pane"><div id="advanced-controls-panel-development"></div></div>
+                    <div id="tab-other" class="tab-pane"><div id="advanced-controls-panel-other"></div></div>
+                </div>
             </div>
         </div>
 

@@ -91,7 +91,31 @@ const masterReverb = new Tone.Reverb({ decay: 4.5, preDelay: 0.08, wet: 0.5 }).t
 Object.values(instruments).forEach(instr => instr.connect(masterReverb));
 
 // --- Musical Scales and State ---
-const zenNotes = ["C3", "D3", "E3", "G3", "A3", "C4", "D4", "E4", "G4", "A4", "C5", "D5", "E5"];
+const scaleLibrary = {
+    zen: ["C3", "D3", "E3", "G3", "A3", "C4", "D4", "E4", "G4", "A4", "C5", "D5", "E5"],
+    major: ["C3", "D3", "E3", "F3", "G3", "A3", "B3", "C4", "D4", "E4", "F4", "G4", "A4", "B4", "C5"],
+    minor_pentatonic: ["C3", "Eb3", "F3", "G3", "Bb3", "C4", "Eb4", "F4", "G4", "Bb4", "C5"],
+    natural_minor: ["C3", "D3", "Eb3", "F3", "G3", "Ab3", "Bb3", "C4", "D4", "Eb4", "F4", "G4", "Ab4", "Bb4", "C5"],
+    dorian: ["C3", "D3", "Eb3", "F3", "G3", "A3", "Bb3", "C4", "D4", "Eb4", "F4", "G4", "A4", "Bb4", "C5"],
+    mixolydian: ["C3", "D3", "E3", "F3", "G3", "A3", "Bb3", "C4", "D4", "E4", "F4", "G4", "A4", "Bb4", "C5"],
+    harmonic_minor: ["C3", "D3", "Eb3", "F3", "G3", "Ab3", "B3", "C4", "D4", "Eb4", "F4", "G4", "Ab4", "B4", "C5"],
+    whole_tone: ["C3", "D3", "E3", "F#3", "G#3", "A#3", "C4", "D4", "E4", "F#4", "G#4", "A#4", "C5"]
+};
+let currentScaleName = 'zen';
+function getCurrentScaleNotes() {
+    return scaleLibrary[currentScaleName] || scaleLibrary.zen;
+}
+function setCurrentScale(name) {
+    if (!scaleLibrary[name]) return;
+    currentScaleName = name;
+    // Reset melodic indices to safe positions within the new scale
+    pitchState['B'].currentZenNoteIndex = 0;
+    const len = getCurrentScaleNotes().length;
+    pitchState['W'].currentZenNoteIndex = Math.min(6, Math.max(0, len - 1));
+}
+// Expose to UI
+window.setMusicScale = setCurrentScale;
+window.getMusicScale = () => currentScaleName;
 const tensionNotes = ["C#4", "Eb4", "F#4", "A#4", "B4"];
 const pitchState = {
     'B': { currentZenNoteIndex: 0 },
@@ -122,7 +146,8 @@ function stopAllNotesAndSchedules() {
 
 function getNoteFromZenScale(playerColor) {
     const playerState = pitchState[playerColor];
-    return zenNotes[playerState.currentZenNoteIndex];
+    const notes = getCurrentScaleNotes();
+    return notes[playerState.currentZenNoteIndex % notes.length];
 }
 
 
@@ -196,7 +221,8 @@ function playMusicalCue(report, controls) {
             Tone.Transport.scheduleOnce(() => {
                 instrument.triggerAttackRelease(resolvingNote, "4n", Tone.now());
             }, Tone.now() + Tone.Time(config.duration).toSeconds() * 0.8);
-            pitchState[player].currentZenNoteIndex = (pitchState[player].currentZenNoteIndex + 1) % zenNotes.length;
+            const len1 = getCurrentScaleNotes().length;
+            pitchState[player].currentZenNoteIndex = (pitchState[player].currentZenNoteIndex + 1) % len1;
             return; // Manual scheduling, so we exit here
         default: // Fixed note (e.g., 'C3', 'E4')
             noteToPlay = config.note;
@@ -209,6 +235,7 @@ function playMusicalCue(report, controls) {
         instrument.triggerAttackRelease(noteToPlay, config.duration);
 
         // Advance the melodic index for the next move
-        pitchState[player].currentZenNoteIndex = (pitchState[player].currentZenNoteIndex + 1) % zenNotes.length;
+        const len2 = getCurrentScaleNotes().length;
+        pitchState[player].currentZenNoteIndex = (pitchState[player].currentZenNoteIndex + 1) % len2;
     }
 }
