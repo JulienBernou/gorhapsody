@@ -13,9 +13,9 @@ const boardThemes = {
     noir_et_or: {
         // UPDATED: Lighter charcoal slate for better contrast
         background: "#3a3a3a", 
-        lineColor: "rgba(190, 160, 100, 0.6)",
+        lineColor: "rgba(255, 255, 255, 0.10)",
         lineWidth: 1,
-        starColor: "rgba(190, 160, 100, 0.8)",
+        starColor: "rgba(255, 255, 255, 0.20)",
         stone: {
             type: function(ctx, x, y, r, stone) {
                 if (stone.c === WGo.B) {
@@ -65,10 +65,41 @@ const boardThemes = {
     }
 };
 
+// --- Board background darkness utilities ---
+function darkenHexColor(hex, percent) {
+    // hex like #rrggbb, percent 0-100 darker
+    if (!hex || typeof hex !== 'string' || !hex.startsWith('#')) return hex;
+    const p = Math.max(0, Math.min(100, percent)) / 100;
+    const num = parseInt(hex.replace('#',''), 16);
+    const r = num >> 16;
+    const g = (num >> 8) & 0x00FF;
+    const b = num & 0x0000FF;
+    const nr = Math.round(r * (1 - p));
+    const ng = Math.round(g * (1 - p));
+    const nb = Math.round(b * (1 - p));
+    const toHex = (v) => v.toString(16).padStart(2, '0');
+    return `#${toHex(nr)}${toHex(ng)}${toHex(nb)}`;
+}
+
+function applyBoardDarkness(themeConfig, darknessPercent) {
+    const cloned = JSON.parse(JSON.stringify(themeConfig));
+    if (cloned.background && cloned.background.startsWith('#')) {
+        cloned.background = darkenHexColor(cloned.background, darknessPercent);
+    }
+    if (cloned.lineColor && cloned.lineColor.startsWith('#')) {
+        cloned.lineColor = darkenHexColor(cloned.lineColor, Math.min(50, darknessPercent / 2));
+    }
+    if (cloned.starColor && cloned.starColor.startsWith('#')) {
+        cloned.starColor = darkenHexColor(cloned.starColor, Math.min(50, darknessPercent / 2));
+    }
+    return cloned;
+}
+
 // --- Music Configuration ---
 const musicControls = {
     'Capture': { label: '💥 Capture', instrument: 'membraneSynth', note: 'C3', volume: -5, duration: '0.4s' },
     'Atari': { label: '❗ Atari', instrument: 'gentleSynth', note: 'tension_chord', volume: -6, duration: '8n' },
+    'Hane': { label: '⤴️ Hane', instrument: 'marimbaSynth', note: 'melodic_accent', volume: -7, duration: '8n' },
     'Cut': { label: '✂️ Cut', instrument: 'membraneSynth', note: 'G4', volume: -7, duration: '16n' },
     'Connection': { label: '🔗 Connection', instrument: 'marimbaSynth', note: 'A4', volume: -9, duration: '4n' },
     'Atari Threat': { label: '⚠️ Atari Threat', instrument: 'gentleSynth', note: 'tension_dyad', volume: -8, duration: '16n' },
@@ -93,6 +124,7 @@ const musicPresets = {
     classic: {
         'Capture': 'marimbaSynth',
         'Atari': 'gentleSynth',
+        'Hane': 'marimbaSynth',
         'Cut': 'marimbaSynth',
         'Connection': 'marimbaSynth',
         'Atari Threat': 'gentleSynth',
@@ -114,6 +146,7 @@ const musicPresets = {
     electronic: {
         'Capture': 'membraneSynth',
         'Atari': 'fmSynth',
+        'Hane': 'amSynth',
         'Cut': 'membraneSynth',
         'Connection': 'amSynth',
         'Atari Threat': 'fmSynth',
@@ -135,6 +168,7 @@ const musicPresets = {
     piano: {
         'Capture': 'piano',
         'Atari': 'piano',
+        'Hane': 'piano',
         'Cut': 'piano',
         'Connection': 'piano',
         'Atari Threat': 'piano',
@@ -156,6 +190,7 @@ const musicPresets = {
     kalimba: {
         'Capture': 'kalimba',
         'Atari': 'kalimba',
+        'Hane': 'kalimba',
         'Cut': 'kalimba',
         'Connection': 'kalimba',
         'Atari Threat': 'kalimba',
@@ -177,6 +212,7 @@ const musicPresets = {
     fun: {
         'Capture': 'pluckSynth',
         'Atari': 'kalimba',
+        'Hane': 'pluckSynth',
         'Cut': 'metalSynth',
         'Connection': 'piano',
         'Atari Threat': 'gentleSynth',
@@ -195,6 +231,39 @@ const musicPresets = {
         'Normal Move': 'dynamic',
         'FinishedGame': 'gentleSynth',
     },
+    // Romantic, piano-centric palette inspired by Liszt
+    liszt: {
+        'Capture': 'piano',
+        'Atari': 'piano',
+        'Hane': 'piano',
+        'Cut': 'piano',
+        'Connection': 'piano',
+        'Atari Threat': 'piano',
+        'Star Point': 'piano',
+        '3-3 Point': 'piano',
+        '3-4 Point': 'piano',
+        'Corner Play': 'piano',
+        'Small Knight': 'piano',
+        'Large Knight': 'piano',
+        'One-Space Jump': 'piano',
+        'Two-Space Jump': 'piano',
+        'First Corner Play': 'piano',
+        'Corner Enclosure': 'piano',
+        'Large Enclosure': 'piano',
+        'Contact Move': 'piano',
+        'Normal Move': 'piano',
+        'FinishedGame': 'piano',
+    },
+};
+
+// Scale assignment per preset (keyed by preset id)
+const presetScales = {
+    classic: 'zen',
+    electronic: 'zen',
+    piano: 'zen',
+    kalimba: 'zen',
+    fun: 'zen',
+    liszt: 'zen'
 };
 
 function applyMusicPreset(presetKey) {
@@ -207,6 +276,13 @@ function applyMusicPreset(presetKey) {
     }
     // Re-render advanced controls to update selects
     setupAdvancedControls();
+    // Apply associated scale
+    if (presetScales[presetKey] && window.setMusicScale) {
+        window.setMusicScale(presetScales[presetKey]);
+        // Reflect in UI select if present
+        const scaleSelect = document.getElementById('music-scale-select');
+        if (scaleSelect) scaleSelect.value = presetScales[presetKey];
+    }
 }
 
 // DOM elements
@@ -221,6 +297,7 @@ const analysisDetailsDiv = document.getElementById('analysis-details');
 const advancedControlsPanel = document.getElementById('advanced-controls-panel');
 const distributionChartDiv = document.getElementById('distribution-chart');
 const boardThemeSelect = document.getElementById('board-theme-select');
+const boardDarknessRange = document.getElementById('board-darkness-range');
 const gobanContainer = document.getElementById('goban-container');
 const wgoPlayerDisplay = document.getElementById('wgo-player-display');
 // --- New: Playback controls ---
@@ -230,6 +307,7 @@ const gammaRange = document.getElementById('gammaRange');
 const gammaNumber = document.getElementById('gammaNumber');
 // --- New: Presets ---
 const musicPresetsSelect = document.getElementById('music-presets-select');
+const musicScaleSelect = document.getElementById('music-scale-select');
 
 // --- Helper Functions ---
 function showStatus(message, type = 'info') {
@@ -247,9 +325,24 @@ function setPlayPauseButton(isPlaying) {
 }
 
 function setupAdvancedControls() {
-    advancedControlsPanel.innerHTML = '';
-    for (const key in musicControls) {
+    const groups = {
+        contact: ['Hane', 'Contact Move'],
+        threats: ['Atari', 'Atari Threat', 'Cut'],
+        development: ['Corner Play', 'Corner Enclosure', 'Large Enclosure', 'Small Knight', 'Large Knight', 'One-Space Jump', 'Two-Space Jump', 'Star Point', '3-3 Point', '3-4 Point', 'First Corner Play'],
+        other: ['Capture', 'Connection', 'Normal Move', 'FinishedGame']
+    };
+
+    const mountPoints = {
+        contact: document.getElementById('advanced-controls-panel-contact'),
+        threats: document.getElementById('advanced-controls-panel-threats'),
+        development: document.getElementById('advanced-controls-panel-development'),
+        other: document.getElementById('advanced-controls-panel-other')
+    };
+    Object.values(mountPoints).forEach(mp => { if (mp) mp.innerHTML = ''; });
+
+    const renderFieldset = (key) => {
         const config = musicControls[key];
+        if (!config) return null;
         const fieldset = document.createElement('fieldset');
         const legend = document.createElement('legend');
         legend.textContent = config.label;
@@ -273,10 +366,23 @@ function setupAdvancedControls() {
         });
         fieldset.appendChild(instrLabel);
         fieldset.appendChild(instrSelect);
-
         instrSelect.addEventListener('change', handleControlChange);
-        advancedControlsPanel.appendChild(fieldset);
-    }
+        return fieldset;
+    };
+
+    const place = (groupKey) => {
+        const mount = mountPoints[groupKey];
+        if (!mount) return;
+        groups[groupKey].forEach(moveName => {
+            const fs = renderFieldset(moveName);
+            if (fs) mount.appendChild(fs);
+        });
+    };
+
+    place('contact');
+    place('threats');
+    place('development');
+    place('other');
 }
 
 function handleControlChange(event) {
@@ -290,7 +396,9 @@ function handleControlChange(event) {
 function createWgoPlayer() {
     if (!currentSgfContent) return;
     const selectedTheme = boardThemeSelect.value;
-    const themeConfig = boardThemes[selectedTheme];
+    const baseTheme = boardThemes[selectedTheme];
+    const darkness = boardDarknessRange ? parseInt(boardDarknessRange.value) : 0;
+    const themeConfig = applyBoardDarkness(baseTheme, isNaN(darkness) ? 0 : darkness);
     const lastMove = currentMoveIndex;
     if (wgoPlayer) {
         wgoPlayer.destroy();
@@ -346,6 +454,7 @@ function displayMoveAnalysis(report) {
     analysisText += `</ul>`;
     analysisDiv.innerHTML = analysisText;
     let detailsText = '<strong>Detected Patterns:</strong><ul>';
+    if (report.is_hane) detailsText += `<li>Hane shape detected</li>`;
     if (report.captures && report.captures.length > 0) detailsText += `<li>Captured ${report.captured_count} stone(s)</li>`;
     if (report.atari && report.atari.length > 0) detailsText += `<li>Atari on ${report.atari.length} group(s)</li>`;
     if (report.is_cut) detailsText += `<li>Is a cutting move</li>`;
@@ -504,6 +613,9 @@ sgfUploadInput.addEventListener('change', async (event) => {
 });
 
 boardThemeSelect.addEventListener('change', createWgoPlayer);
+if (boardDarknessRange) {
+    boardDarknessRange.addEventListener('input', createWgoPlayer);
+}
 playPauseBtn.addEventListener('click', startPlayback);
 prevBtn.addEventListener('click', goToPrevMove);
 nextBtn.addEventListener('click', goToNextMove);
@@ -544,6 +656,27 @@ if (musicPresetsSelect) {
     });
 }
 
+// Tab switching logic
+document.querySelectorAll('#advanced-controls-container .tab-button').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('#advanced-controls-container .tab-button').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('#advanced-controls-container .tab-pane').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        const target = btn.dataset.tab;
+        const pane = document.getElementById(target);
+        if (pane) pane.classList.add('active');
+    });
+});
+
+// Scale selector wiring
+if (musicScaleSelect) {
+    musicScaleSelect.addEventListener('change', (e) => {
+        if (window.setMusicScale) {
+            window.setMusicScale(e.target.value);
+        }
+    });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     setupAdvancedControls();
     enableControls(false);
@@ -553,5 +686,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (gammaRange && gammaNumber) {
         syncGammaInputs(gamma);
+    }
+    // Initialize scale select to current engine scale if available
+    if (musicScaleSelect && window.getMusicScale) {
+        musicScaleSelect.value = window.getMusicScale();
     }
 });
