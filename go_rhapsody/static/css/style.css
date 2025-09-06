@@ -38,8 +38,8 @@ body {
 /* --- General Layout (UPDATED for 3 columns) --- */
 #page-wrapper {
     display: flex;
-    flex-wrap: wrap;
-    gap: 140px;
+    flex-wrap: nowrap; /* keep panels on one row on wide screens */
+    gap: 40px; /* tighter spacing to fit three columns */
     justify-content: center; /* Center the whole layout */
     max-width: 1400px; /* Increased max-width for 3 columns */
     margin: 0 auto;
@@ -58,6 +58,11 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
+}
+
+/* Responsive: allow wrapping on smaller screens */
+@media (max-width: 1200px) {
+    #page-wrapper { flex-wrap: wrap; }
 }
 
 h2, h3 {
