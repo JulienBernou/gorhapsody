@@ -98,6 +98,28 @@ const pitchState = {
     'W': { currentZenNoteIndex: 6 }
 };
 
+// --- Utilities: stop all audio ---
+function stopAllNotesAndSchedules() {
+    try {
+        // Release any sustained notes across all instruments
+        Object.values(instruments).forEach(instr => {
+            if (typeof instr.releaseAll === 'function') {
+                instr.releaseAll();
+            }
+            // Fallback for mono synths
+            if (typeof instr.triggerRelease === 'function') {
+                try { instr.triggerRelease(); } catch (_) {}
+            }
+        });
+        // Cancel any scheduled events to avoid late triggers
+        if (Tone.Transport) {
+            Tone.Transport.cancel();
+        }
+    } catch (e) {
+        console.warn('Failed to fully stop audio:', e);
+    }
+}
+
 function getNoteFromZenScale(playerColor) {
     const playerState = pitchState[playerColor];
     return zenNotes[playerState.currentZenNoteIndex];
@@ -114,6 +136,8 @@ function playMusicalCue(report, controls) {
 
     // Handle game state changes first
     if (report.type === 'ResetGame' || report.type === 'FinishedGame') {
+        // Ensure no lingering sustain or scheduled notes
+        stopAllNotesAndSchedules();
         pitchState['B'].currentZenNoteIndex = 0;
         pitchState['W'].currentZenNoteIndex = 6;
         const chord = report.type === 'ResetGame' ? ["C3", "E3", "G3"] : ["C4", "A3", "F3"];
